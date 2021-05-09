@@ -31,29 +31,27 @@ def kraken_request(uri_path, data, api_key, api_sec):
 def fetch_OHLC_data(symbol, timeframe):
     """
     This function will get Open/High/Low/Close, Volume and tradecount data for the pair passed
+    symbol must be in format XXX/XXX ie. BTC/USD
     """
-    pair_split = symbol.split('/')  # symbol must be in format XXX/XXX ie. BTC/USD
+    pair_split = symbol.split('/') 
     symbol = pair_split[0] + pair_split[1]
     url = f'https://api.kraken.com/0/public/OHLC?pair={symbol}&interval={timeframe}'
     response = requests.get(url)
     data=pd.DataFrame()
-    if response.status_code == 200:  # check to make sure the response from server is good
+    if response.status_code == 200: 
         j = json.loads(response.text)
         result = j['result']
         keys = []
         for item in result:
             keys.append(item)
         if keys[0] != 'last':
-            data = pd.DataFrame(result[keys[0]],
-                                columns=['unix', 'open', 'high', 'low', 'close', 'vwap', 'volume', 'tradecount'])
+            data = pd.DataFrame(result[keys[0]],columns=['unix', 'open', 'high', 'low', 'close', 'vwap', 'volume', 'tradecount'])
         else:
-            data = pd.DataFrame(result[keys[1]],
-                                columns=['unix', 'open', 'high', 'low', 'close', 'vwap', 'volume', 'tradecount'])
+            data = pd.DataFrame(result[keys[1]],columns=['unix', 'open', 'high', 'low', 'close', 'vwap', 'volume', 'tradecount'])
 
         data['date'] = pd.to_datetime(data['unix'], unit='s')
         data['volume_from'] = data['volume'].astype(float) * data['close'].astype(float)
 
-        # if we failed to get any data, print an error...otherwise write the file
         if data is None:
             print("Did not return any data from Kraken for this symbol")
     else:
@@ -63,13 +61,14 @@ def fetch_OHLC_data(symbol, timeframe):
 def fetch_SPREAD_data(symbol):
     """
     This function will return the nearest bid/ask and calculate the spread for the symbol passed
+    symbol must be in format XXX/XXX ie. BTC/USD
     """
-    pair_split = symbol.split('/')  # symbol must be in format XXX/XXX ie. BTC/USD
+    pair_split = symbol.split('/') 
     symbol = pair_split[0] + pair_split[1]
     url = f'https://api.kraken.com/0/public/Spread?pair={symbol}'
     response = requests.get(url)
     data=pd.DataFrame()
-    if response.status_code == 200:  # check to make sure the response from server is good
+    if response.status_code == 200: 
         j = json.loads(response.text)
         result = j['result']
         keys = []
@@ -83,7 +82,6 @@ def fetch_SPREAD_data(symbol):
         data['date'] = pd.to_datetime(data['unix'], unit='s')
         data['spread'] = data['ask'].astype(float) - data['bid'].astype(float)
 
-        # if we failed to get any data, print an error...otherwise write the file
         if data is None:
             print("Did not return any data from Kraken for this symbol")
     else:

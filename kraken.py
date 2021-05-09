@@ -66,7 +66,7 @@ def kraken_ledger(api_key, api_sec, currencies):
     ledger_df_asset = remap_series(ledger_df_asset, 'asset')
 
     # Aggregate 
-    ledger_df_bare = aggregate_balances_per_day_ledger(ledger_df_asset, currencies)
+    ledger_df_bare = aggregate_balances_per_day_ledger(ledger_df_asset, currencies, 'fee', 'amount')
 
     return ledger_df_bare
 

@@ -89,41 +89,37 @@ def aggregate_balances_per_day_trade(df, currencies, pair_cols):
     for currency in currencies:
         df[currency]=0
 
-        df.loc[(df.type=='sell') & (df[pair_cols[0]]==currency),
-               currency] = df[currency] + (df.vol*-1)
-        df.loc[(df.type=='buy') & (df[pair_cols[0]]==currency), 
-               currency] = df[currency] + (df.vol)
+        df.loc[(df.type=='sell') & (df[pair_cols[0]]==currency), currency] = df[currency] + (df.vol*-1)
+        df.loc[(df.type=='buy') & (df[pair_cols[0]]==currency), currency] = df[currency] + (df.vol)
 
         df.loc[df.pair_2==currency, currency] = df[currency] + (df.fee*-1)
 
-        df.loc[(df.type=='sell') & (df[pair_cols[1]]==currency)
-               , currency] = df[currency] + (df.cost)
-        df.loc[(df.type=='buy') & (df[pair_cols[1]]==currency)
-               , currency] = df[currency] + (df.cost*-1)
+        df.loc[(df.type=='sell') & (df[pair_cols[1]]==currency), currency] = df[currency] + (df.cost)
+        df.loc[(df.type=='buy') & (df[pair_cols[1]]==currency), currency] = df[currency] + (df.cost*-1)
     
     return df.groupby('date').agg('sum')[currencies]
 
-def aggregate_balances_per_day_ledger(df, currencies):
+def aggregate_balances_per_day_ledger(df, currencies, fee_series_name='fee', volume_series_name='amount'):
     """
     Return a dataframe which as a column for each asset in the currencies ls
     these columns will have the balance change for each date
     """
     
-    df['fee'] = df['fee'].astype('float')
+    df[fee_series_name] = df[fee_series_name].astype('float')
     for currency in currencies:
         if currency not in df.columns:
             df[currency]=0
-        df.loc[df.asset==currency, currency] = df[currency] + (df.fee*-1)
+        df.loc[df.asset==currency, currency] = df[currency] + (df[fee_series_name]*-1)
     
-    df['amount'] = df['amount'].astype('float')
+    df[volume_series_name] = df[volume_series_name].astype('float')
     for currency in list(set(fiat_currencies) & set(currencies)):
         if currency not in df.columns:
             df[currency]=0
             
         df.loc[(df.asset==currency) & (df.type=='deposit'),
-               currency] = df[currency] + (df.amount)
+               currency] = df[currency] + (df[volume_series_name])
         df.loc[(df.asset==currency) & (df.type=='withdrawal'), 
-               currency] = df[currency] + (df.amount*-1)
+               currency] = df[currency] + (df[volume_series_name]*-1)
 
     return df.groupby('date').agg('sum')[currencies]
     
