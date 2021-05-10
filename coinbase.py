@@ -66,7 +66,7 @@ def coinbase_balances(api_key, api_sec):
 
     return account_balances
 
-def coinbase_pull_all(api_key, api_sec, daily_prices_ls=daily_prices_ls):
+def coinbase_pull_all(api_key, api_sec, daily_prices_ls=daily_prices_ls, daily_prices_df=daily_prices_df ):
     """
     Process flow for all coinbase data
     Returns 
@@ -76,17 +76,16 @@ def coinbase_pull_all(api_key, api_sec, daily_prices_ls=daily_prices_ls):
         - ls of currencies used
         - ls of successfully pulled daily prices
     """
-
     ## TRANSACTIONS DATA
     balance_df, currencies = coinbase_transactions(api_key, api_sec)
     
     ## DAILY PRICES
-    daily_values_df, daily_prices_ls = fetch_daily_price_pairs(pairs,'coinbase', daily_prices_ls)
+    daily_prices_df, daily_prices_ls = fetch_daily_price_pairs(pairs,'coinbase', daily_prices_ls, daily_prices_df)
 
     ## BALANCES
     account_balances_df = coinbase_balances(api_key, api_sec)
 
-    return balance_df, daily_values_df, account_balances_df, currencies, daily_prices_ls
+    return balance_df, daily_prices_df, account_balances_df, currencies, daily_prices_ls
 
 if __name__ == "__main__":
     api_key = api_dict['Coinbase']['key']

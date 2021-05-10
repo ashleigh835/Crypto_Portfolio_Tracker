@@ -115,12 +115,11 @@ def fetch_daily_price_individual(symbol, exchange):
         print(f"Did not receieve OK response from {exchange} API for {symbol}")
     return data
 
-def fetch_daily_price_pairs(pairs, exchange, dta=[]):
+def fetch_daily_price_pairs(pairs, exchange, dta=[], daily_prices_df = pd.DataFrame()):
     """
     PULL DAILY PRICES FOR SPECIFIC PAIRS (This is a public API - doesn't need credentials)
     RETURNS A DATAFRAME AND A DICTIONARY WITH KEY: PAIR AND VALUE = DATAFRAME OF THE DAILY DATA
     """        
-    daily_values_df = pd.DataFrame()
     for pair in pairs:
         if pair not in dta:
             print(f'new pair found! Pulling data for {pair}')
@@ -133,11 +132,11 @@ def fetch_daily_price_pairs(pairs, exchange, dta=[]):
                 tmpdf[pair] = (tmpdf['high']+tmpdf['low'])/2  
 
                 tmpdf = tmpdf[['date',pair]].set_index('date')
-                daily_values_df = pd.concat([daily_values_df,tmpdf], axis = 1, sort=True, join='outer')
+                daily_prices_df = pd.concat([daily_prices_df,tmpdf], axis = 1, sort=True, join='outer')
                 
                 dta += [pair]
     
-    return daily_values_df, dta
+    return daily_prices_df, dta
 
 def kraken_fetch_SPREAD_data(symbol):
     """

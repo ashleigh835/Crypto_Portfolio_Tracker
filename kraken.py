@@ -87,7 +87,7 @@ def kraken_balances(api_key, api_sec):
 
     return account_balances
 
-def kraken_pull_all(api_key, api_sec,daily_prices_ls=daily_prices_ls):
+def kraken_pull_all(api_key, api_sec,daily_prices_ls=daily_prices_ls,daily_prices_df=daily_prices_df):
     """
     Process flow for all Kraken data
     Returns 
@@ -110,13 +110,13 @@ def kraken_pull_all(api_key, api_sec,daily_prices_ls=daily_prices_ls):
     balance_df = balance_df.groupby('date').agg(sum)
     
     ## DAILY PRICES
-    daily_values_df, daily_prices_ls = fetch_daily_price_pairs(pairs,'kraken',daily_prices_ls)
+    daily_prices_df, daily_prices_ls = fetch_daily_price_pairs(pairs,'kraken',daily_prices_ls,daily_prices_df)
 
     ## BALANCES
     account_balances_df = kraken_balances(api_key, api_sec)
 
-    return balance_df, daily_values_df, account_balances_df, currencies, daily_prices_ls
-    
+    return balance_df, daily_prices_df, account_balances_df, currencies, daily_prices_ls
+
 if __name__ == "__main__":
     api_key = api_dict['Kraken']['key']
     api_sec = api_dict['Kraken']['sec']
