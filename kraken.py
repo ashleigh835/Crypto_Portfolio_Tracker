@@ -18,7 +18,7 @@ def kraken_trades(api_key, api_sec):
                         api_key,
                         api_sec)
     # Process trades
-    trades_df = parse_api_results(resp, 'trades')
+    trades_df = kraken_parse_api_results(resp, 'trades')
 
     # Split pairs into individual columns
     trades_df_pairs, pair_cols = parse_pairs_from_series(trades_df.copy(),'pair')
@@ -34,7 +34,7 @@ def kraken_trades(api_key, api_sec):
     currencies = remap_and_dedupe_assets(currencies)
 
     # Aggregate 
-    trades_df_bare = aggregate_balances_per_day_trade(trades_df_pairs, currencies, pair_cols)
+    trades_df_bare = kraken_aggregate_balances_per_day_trade(trades_df_pairs, currencies, pair_cols)
 
     return trades_df_bare, currencies
 
@@ -56,7 +56,7 @@ def kraken_ledger(api_key, api_sec, currencies):
                             api_key, 
                             api_sec)
         # Process ledger
-        temp_df = parse_api_results(resp, 'ledger')
+        temp_df = kraken_parse_api_results(resp, 'ledger')
         temp_df = temp_df[temp_df.type != 'trade']    
         ledger_df = pd.concat([ledger_df,temp_df])
     
@@ -66,32 +66,9 @@ def kraken_ledger(api_key, api_sec, currencies):
     ledger_df_asset = remap_series(ledger_df_asset, 'asset')
 
     # Aggregate 
-    ledger_df_bare = aggregate_balances_per_day_ledger(ledger_df_asset, currencies, 'fee', 'amount')
+    ledger_df_bare = kraken_aggregate_balances_per_day_ledger(ledger_df_asset, currencies)
 
     return ledger_df_bare
-
-def kraken_daily_prices(pairs=pairs, dta=kraken_daily_prices_df):
-    """
-    PULL DAILY PRICES FOR SPECIFIC PAIRS (This is a public API - doesn't need credentials)
-    RETURNS A DICTIONARY WITH KEY: PAIR AND VALUE = DATAFRAME OF THE DAILY DATA
-    """
-    for pair in pairs:
-        if pair not in dta.keys():
-            print(f'new pair found! Pulling data for {pair}')
-        dta[pair] = fetch_OHLC_data(symbol=pair, timeframe='1440')  # fetches daily data
-
-    # Concat all into one dataframe
-    daily_values_df = pd.DataFrame()
-    for pair in pairs:
-        tmpdf = dta[pair].copy()[['date','high','low']]  
-        tmpdf['high'] = tmpdf['high'].astype(float)
-        tmpdf['low'] = tmpdf['low'].astype(float)
-        tmpdf[pair] = (tmpdf['high']+tmpdf['low'])/2  
-        
-        tmpdf = tmpdf[['date',pair]].set_index('date')
-        daily_values_df = pd.concat([daily_values_df,tmpdf], axis = 1, sort=True, join='outer')
-    
-    return daily_values_df, dta
 
 def kraken_balances(api_key, api_sec):
     """
@@ -110,7 +87,7 @@ def kraken_balances(api_key, api_sec):
 
     return account_balances
 
-def kraken_pull_all(api_key, api_sec):
+def kraken_pull_all(api_key, api_sec,daily_prices_ls=daily_prices_ls):
     """
     Process flow for all Kraken data
     Returns 
@@ -118,6 +95,7 @@ def kraken_pull_all(api_key, api_sec):
         - dataframe with daily price data for all associated assets traded within the API
         - dict with current balances
         - ls of currencies used
+        - ls of successfully pulled daily prices
     """
 
     ## TRADES DATA
@@ -132,13 +110,13 @@ def kraken_pull_all(api_key, api_sec):
     balance_df = balance_df.groupby('date').agg(sum)
     
     ## DAILY PRICES
-    daily_values_df, kraken_daily_prices_df = kraken_daily_prices(pairs)
+    daily_values_df, daily_prices_ls = fetch_daily_price_pairs(pairs,'kraken',daily_prices_ls)
 
     ## BALANCES
     account_balances_df = kraken_balances(api_key, api_sec)
 
-    return balance_df, daily_values_df, account_balances_df, currencies
-
+    return balance_df, daily_values_df, account_balances_df, currencies, daily_prices_ls
+    
 if __name__ == "__main__":
     api_key = api_dict['Kraken']['key']
     api_sec = api_dict['Kraken']['sec']
