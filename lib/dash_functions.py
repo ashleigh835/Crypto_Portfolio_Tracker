@@ -30,8 +30,18 @@ def settings_default():
     }
 }
 
+def clean_json(dta):
+    delete_ls = []
+    for exch in dta['Wallets']['APIs'].keys():
+        if dta['Wallets']['APIs'][exch] == []:
+            delete_ls+=[exch]        
+    for exch in delete_ls:
+        dta['Wallets']['APIs'].pop(exch)
+    return dta
+
 def update_settings(dta):
     app_data_loc, app_settings = locate_settings()
+    dta = clean_json(dta)
     with open(app_settings, 'w') as outfile:
         json.dump(dta, outfile)
 
@@ -56,6 +66,13 @@ def remove_entry_from_json(index):
         for entry in dta[exchange]:
             if entry['api_id'] == index:
                 dta[exchange].remove(entry)
-                # update_settings(app_settings_dict)
+                update_settings(app_settings_dict)
                 return f"removing the API which was added on {entry['time_added']}"
     return "No entry found to be removed"
+
+def get_latest_index_from_json():
+    app_settings_dict=load_settings()
+    max_index =[-1]
+    for exch in app_settings_dict['Wallets']['APIs'].keys():
+        max_index += [ sub['api_id'] for sub in load_settings()['Wallets']['APIs'][exch] ]
+    return max(max_index)+1

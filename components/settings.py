@@ -13,7 +13,7 @@ import dash
 from dash.dependencies import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 
-from Crypto_Portfolio_Tracker.lib.dash_functions import load_settings, add_to_json, remove_entry_from_json
+from Crypto_Portfolio_Tracker.lib.dash_functions import load_settings, add_to_json, remove_entry_from_json, get_latest_index_from_json
 
 
 def generate_wallet_cards(apis):
@@ -186,8 +186,8 @@ def render_tab_content(tab):
 @app.callback(Output('wallet', 'children'),
               Input('memory', 'data'))
 def load_wallet_data(data):
-    app.logger.info(f'running load_wallet_data on {data.keys()}')
     if data is not None:
+        app.logger.info(f'running load_wallet_data on {data.keys()}')
         return generate_wallet_cards(data['Wallets']['APIs'])
     else:
         raise PreventUpdate
@@ -215,6 +215,7 @@ def toggle_API_modal(n1,n2):
     Output('api-sec','invalid'),
     Output('memory', 'data'),
     Input('add-api', 'n_clicks'),
+    Input({'type': 'remove-api', 'index': ALL}, 'n_clicks'),
     [   State('exchange', 'value'),
         State('api-key', 'value'),
         State('api-sec', 'value'),
@@ -222,50 +223,45 @@ def toggle_API_modal(n1,n2):
     ]
     , prevent_initial_call = True
 )
-def add_or_remove_API(n1, exchange, api_key, api_sec, api_pass):
+def add_or_remove_API(n1, n2, exchange, api_key, api_sec, api_pass):
     ctx = dash.callback_context
     bad_api_key = False
     bad_api_sec = False 
-    if (len(ctx.triggered)>0) & (n1 is not None):
-        if api_key in [None,'']:
-            bad_api_key = True
-        if api_sec in [None,'']:
-            bad_api_sec = True
+    app.logger.info(len(n2))
+    if (len(ctx.triggered)>0) & (([n1]+n2) != ([None]+[None]*len(n2))):
+        trg = ctx.triggered[0]['prop_id'].split('.')[0]
+        app.logger.info(trg)
+        if trg == 'add-api':
+            app.logger.info(ctx.triggered)
+            if api_key in [None,'']:
+                bad_api_key = True
+            if api_sec in [None,'']:
+                bad_api_sec = True
 
-        if bad_api_key == bad_api_sec == False:
-            max_index =[-1]
-            for exch in load_settings()['Wallets']['APIs'].keys():
-                max_index += [max([ sub['api_id'] for sub in load_settings()['Wallets']['APIs'][exch] ])]
-            
-            exch = {
-                exchange : {
-                    'api_id' : max(max_index)+1,
-                    'api_key' : api_key,
-                    'api_sec' : api_sec,
-                    'api_pass' : api_pass,
-                    'time_added': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            if bad_api_key == bad_api_sec == False:
+                max_index = get_latest_index_from_json()
+
+                exch = {
+                    exchange : {
+                        'api_id' : max_index,
+                        'api_key' : api_key,
+                        'api_sec' : api_sec,
+                        'api_pass' : api_pass,
+                        'time_added': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    }
                 }
-            }
-            add_to_json(type='exchange', dta=exch)
-            return bad_api_key, bad_api_sec, load_settings()
+                app.logger.info(f"adding entry {exch} to json")
+                add_to_json(type='exchange', dta=exch)
+                return bad_api_key, bad_api_sec, load_settings()
 
-        return bad_api_key, bad_api_sec, None
+            return bad_api_key, bad_api_sec, None
+
+        else:
+            trg_dta = json.loads(trg)
+            app.logger.info(remove_entry_from_json(trg_dta['index']))
+            return bad_api_key, bad_api_sec, load_settings()
     else:
         raise PreventUpdate
-
-@app.callback( 
-    Output('exchange','value'), 
-    Input({'type': 'remove-api', 'index': ALL}, 'n_clicks')
-    , prevent_initial_call = True
-)
-def remove_api(n1):
-    ctx = dash.callback_context
-    if (len(ctx.triggered)>0) & (n1 != [None]*7):
-        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
-        trg_dta = json.loads(trg)
-        app.logger.info(remove_entry_from_json(trg_dta['index']))
-    return 'Kraken'
-
 
 
 if __name__ == '__main__':
