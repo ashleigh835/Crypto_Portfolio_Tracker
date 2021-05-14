@@ -40,7 +40,22 @@ def add_to_json(type, dta):
     if type == 'exchange':
         for exch in dta.keys():
             if exch in app_settings_dict['Wallets']['APIs'].keys():
-                app_settings_dict['Wallets']['APIs'][exch] += [dta[exch]]
+                if app_settings_dict['Wallets']['APIs'][exch] != []:
+                    app_settings_dict['Wallets']['APIs'][exch] += [dta[exch]]
+                else:
+                    app_settings_dict['Wallets']['APIs'][exch] = [dta[exch]]
             else:
                 app_settings_dict['Wallets']['APIs'][exch] = [dta[exch]]
     update_settings(app_settings_dict)
+
+
+def remove_entry_from_json(index):
+    app_settings_dict=load_settings()
+    dta = app_settings_dict['Wallets']['APIs']
+    for exchange in dta.keys():
+        for entry in dta[exchange]:
+            if entry['api_id'] == index:
+                dta[exchange].remove(entry)
+                # update_settings(app_settings_dict)
+                return f"removing the API which was added on {entry['time_added']}"
+    return "No entry found to be removed"

@@ -1,4 +1,6 @@
-from Crypto_Portfolio_Tracker.lib.dash_functions import load_settings, add_to_json
+
+import json
+from datetime import datetime
 
 import sys
 sys.path.append('../')
@@ -8,10 +10,11 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 import dash
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 
-from datetime import datetime
+from Crypto_Portfolio_Tracker.lib.dash_functions import load_settings, add_to_json, remove_entry_from_json
+
 
 def generate_wallet_cards(apis):
 
@@ -24,17 +27,20 @@ def generate_wallet_cards(apis):
 
 
 
-    def generate_individual_apis_listgroup(exchange):
+    def generate_individual_apis_listgroup(exchange,apis):
         ls=[]
-        i=0
         for api in apis[exchange]:
             ls+=[   
                 dbc.ListGroupItem(
                     [   dbc.Row(
                             [   dbc.Col(html.P(f"API added {api['time_added']}",className="card-text")),
                                 dbc.Col(
-                                    dbc.Button(children=[html.I(className="fas fa-minus-square", style={'color':'red'})], id='remove-api-{i}', size='sm', color='link',
-                                        style={'margin':'0',"padding":"0",'background-color': 'white', 'float':'right','align':'center'}
+                                    dbc.Button(children=[html.I(className="fas fa-minus-square", style={'color':'red'})], size='sm', color='link',
+                                        style={'margin':'0',"padding":"0",'background-color': 'white', 'float':'right','align':'center'},
+                                        id={
+                                            'index':api['api_id'],
+                                            'type':f'remove-api'
+                                        }
                                     ),
                                     style={'padding-right':'1%'}    
                                 ),
@@ -43,7 +49,6 @@ def generate_wallet_cards(apis):
                     ]
                 )
             ]
-            i+=1
         return ls
 
     def generate_exchange_card(apis):
@@ -52,7 +57,7 @@ def generate_wallet_cards(apis):
             ls+=dbc.CardBody(
                 [   dbc.CardHeader(exchange,style={'background-color': 'white', 'font-weight': 'bold'}),
                     dbc.ListGroup(
-                        generate_individual_apis_listgroup(exchange),
+                        generate_individual_apis_listgroup(exchange,apis),
                         flush=True,
                     ),
                 ]
@@ -152,6 +157,7 @@ tab_Style = {
 
 layout = html.Div(
     [   dcc.Store(data=load_settings(), id='memory', storage_type='session'),
+    # [   dcc.Store(id='memory', storage_type='session', clear_data =True),
         dcc.Tabs(
             id='tab_settings', 
             value='Wallet', 
@@ -194,7 +200,7 @@ def load_wallet_data(data):
 )
 def toggle_API_modal(n1,n2):
     ctx = dash.callback_context
-    if (len(ctx.triggered)>0) & ((n1 is not None) or (n2 is not None)):
+    if (len(ctx.triggered)>0) & ([n1,n2] != [None]*2):
         trg = ctx.triggered[0]['prop_id'].split('.')[0]  
         if trg == "add-API-modal":
             return True
@@ -216,20 +222,24 @@ def toggle_API_modal(n1,n2):
     ]
     , prevent_initial_call = True
 )
-def add_API(n1, exchange, api_key, api_sec, api_pass):
+def add_or_remove_API(n1, exchange, api_key, api_sec, api_pass):
     ctx = dash.callback_context
     bad_api_key = False
     bad_api_sec = False 
     if (len(ctx.triggered)>0) & (n1 is not None):
-        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
         if api_key in [None,'']:
             bad_api_key = True
         if api_sec in [None,'']:
             bad_api_sec = True
 
         if bad_api_key == bad_api_sec == False:
+            max_index =[-1]
+            for exch in load_settings()['Wallets']['APIs'].keys():
+                max_index += [max([ sub['api_id'] for sub in load_settings()['Wallets']['APIs'][exch] ])]
+            
             exch = {
                 exchange : {
+                    'api_id' : max(max_index)+1,
                     'api_key' : api_key,
                     'api_sec' : api_sec,
                     'api_pass' : api_pass,
@@ -242,6 +252,21 @@ def add_API(n1, exchange, api_key, api_sec, api_pass):
         return bad_api_key, bad_api_sec, None
     else:
         raise PreventUpdate
+
+@app.callback( 
+    Output('exchange','value'), 
+    Input({'type': 'remove-api', 'index': ALL}, 'n_clicks')
+    , prevent_initial_call = True
+)
+def remove_api(n1):
+    ctx = dash.callback_context
+    if (len(ctx.triggered)>0) & (n1 != [None]*7):
+        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+        trg_dta = json.loads(trg)
+        app.logger.info(remove_entry_from_json(trg_dta['index']))
+    return 'Kraken'
+
+
 
 if __name__ == '__main__':
     app.layout = layout
