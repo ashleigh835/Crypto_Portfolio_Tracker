@@ -1,7 +1,7 @@
 from app import app
 
-from components import default_layout as dl
-from components import dashboard as db
+from Crypto_Portfolio_Tracker.components import default_layout as dl
+from Crypto_Portfolio_Tracker.components import dashboard as db
 
 app.layout = dl.default_layout(db.layout)
 

@@ -3,7 +3,7 @@ import json
 
 import sys
 sys.path.append('../')
-from functions import generate_new_key,encrypt,decrypt,load_key
+# from Crypto_Portfolio_Tracker.functions import generate_new_key,encrypt,decrypt,load_key
 
 def locate_settings():    
     app_data_loc = os.getcwd()+os.sep+'data'
@@ -26,17 +26,26 @@ def settings_default():
     return {
     'Wallets' : {
         'APIs' : {},
-        'Address' : {}
+        'Addresses' : {}
     }
 }
 
-def clean_json(dta):
+def clean_json_old(dta):
     delete_ls = []
     for exch in dta['Wallets']['APIs'].keys():
         if dta['Wallets']['APIs'][exch] == []:
             delete_ls+=[exch]        
     for exch in delete_ls:
         dta['Wallets']['APIs'].pop(exch)
+    return dta
+def clean_json(dta):
+    delete_ls = []
+    for section in dta['Wallets'].keys():
+        for wallet_type in dta['Wallets'][section].keys():
+            if dta['Wallets'][section][wallet_type] == []:
+                delete_ls+=[wallet_type]        
+        for wallet_type in delete_ls:
+            dta['Wallets'][section].pop(wallet_type)
     return dta
 
 def update_settings(dta):
@@ -47,32 +56,31 @@ def update_settings(dta):
 
 def add_to_json(type, dta):
     app_settings_dict=load_settings()
-    if type == 'exchange':
-        for exch in dta.keys():
-            if exch in app_settings_dict['Wallets']['APIs'].keys():
-                if app_settings_dict['Wallets']['APIs'][exch] != []:
-                    app_settings_dict['Wallets']['APIs'][exch] += [dta[exch]]
-                else:
-                    app_settings_dict['Wallets']['APIs'][exch] = [dta[exch]]
+    for exch in dta.keys():
+        if exch in app_settings_dict['Wallets'][type].keys():
+            if app_settings_dict['Wallets'][type][exch] != []:
+                app_settings_dict['Wallets'][type][exch] += [dta[exch]]
             else:
-                app_settings_dict['Wallets']['APIs'][exch] = [dta[exch]]
+                app_settings_dict['Wallets'][type][exch] = [dta[exch]]
+        else:
+            app_settings_dict['Wallets'][type][exch] = [dta[exch]]
     update_settings(app_settings_dict)
 
 
-def remove_entry_from_json(index):
+def remove_entry_from_json(index,type):
     app_settings_dict=load_settings()
-    dta = app_settings_dict['Wallets']['APIs']
+    dta = app_settings_dict['Wallets'][type]
     for exchange in dta.keys():
         for entry in dta[exchange]:
-            if entry['api_id'] == index:
+            if entry['id'] == index:
                 dta[exchange].remove(entry)
                 update_settings(app_settings_dict)
                 return f"removing the API which was added on {entry['time_added']}"
     return "No entry found to be removed"
 
-def get_latest_index_from_json():
+def get_latest_index_from_json(type):
     app_settings_dict=load_settings()
     max_index =[-1]
-    for exch in app_settings_dict['Wallets']['APIs'].keys():
-        max_index += [ sub['api_id'] for sub in load_settings()['Wallets']['APIs'][exch] ]
+    for wallet_type in app_settings_dict['Wallets'][type].keys():
+        max_index += [ sub['id'] for sub in load_settings()['Wallets'][type][wallet_type] ]
     return max(max_index)+1

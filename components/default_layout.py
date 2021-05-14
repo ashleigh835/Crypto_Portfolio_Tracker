@@ -2,8 +2,8 @@ import sys
 sys.path.append('../')
 from app import app
 
-from components import dashboard as db
-from components import settings as ls
+from Crypto_Portfolio_Tracker.components import dashboard as db
+from Crypto_Portfolio_Tracker.components import settings as ls
 
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
