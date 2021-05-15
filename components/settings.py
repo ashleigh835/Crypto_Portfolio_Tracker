@@ -304,11 +304,6 @@ def add_or_remove_API(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, asse
     bad_api_key = False
     bad_api_sec = False 
     bad_address = False
-    # app.logger.info([n1,n2]+n3+n4)
-    # app.logger.info([None]*2+[None]*len(n3)+[None]*len(n4))
-    # app.logger.info([None]*(2+len(n3)+len(n4)))
-    # if (len(ctx.triggered)>0) & (([n1,n2]+n3+n4) != ([None]*2+[None]*len(n3)+[None]*len(n4))):
-    #     app.logger.info( (len(ctx.triggered)>0) & (([n1,n2]+n3+n4) != ([None]*2+[None]*len(n3)+[None]*len(n4))) )
     if (len(ctx.triggered)>0) & (([n1,n2]+n3+n4) != ([None]*(2+len(n3)+len(n4)))):
         trg = ctx.triggered[0]['prop_id'].split('.')[0]
         if trg == 'add-api':
@@ -337,7 +332,7 @@ def add_or_remove_API(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, asse
         elif trg == 'add-addresses':
             if address in [None,'']:
                 bad_address = True
-                
+
             else:
                 max_index = get_latest_index_from_json('Addresses')
 
@@ -355,7 +350,6 @@ def add_or_remove_API(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, asse
 
         else:
             trg_dta = json.loads(trg)
-            app.logger.info(f"attempt to remove {trg}")
             app.logger.info(remove_entry_from_json(trg_dta['index'],trg_dta['type'].split('-')[1]))
             return bad_address, bad_api_key, bad_api_sec, load_settings()
     else:
