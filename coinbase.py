@@ -1,8 +1,8 @@
-from config import *
+from config import daily_prices_ls, daily_prices_df, api_dict, pairs, accepted_currencies
+from functions import parse_pairs_from_series, remap_series, remap_and_dedupe_assets, coinbase_aggregate_balances_per_day
+from API_functions import coinbase_request, coinbase_parse_api_results, fetch_daily_price_pairs
 
-from packages import *
-from functions import * 
-from API_functions import * 
+import pandas as pd
 
 def coinbase_accounts(api_key, api_sec):
     """

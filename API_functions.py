@@ -1,6 +1,15 @@
-from packages import *
-from config import *
-from functions import *
+from functions import decrypt
+
+import os
+import time
+import requests
+import pandas as pd
+import urllib.parse
+import hashlib
+import hmac
+import base64
+import json
+from requests.auth import AuthBase
 
 ## PRIVATE API FUNCTIONS
 # COINBASE
@@ -230,7 +239,6 @@ def coinbase_parse_api_results(resp):
                 tmp['asset']=data['amount']['currency']
             else:
                 print(f"Transactions: {data['type']}, network status: {data['network']['status']} not supported!")  
-                yy+=[data]     
                       
         elif data['type']== 'staking_reward':
             tmp['vol']=data['amount']['amount']

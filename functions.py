@@ -1,5 +1,9 @@
-from packages import *
-from config import *
+from config import accepted_currencies, remap_assets, fiat_currencies
+
+import os
+import pandas as pd
+import numpy as np
+from cryptography.fernet import Fernet
 
 def split_pair(pair, accepted_currencies=accepted_currencies):
     """

@@ -1,3 +1,5 @@
+import os
+
 # MANUAL INPUTS
 accepted_currencies = ['XDG',
                        'DOGE',
