@@ -6,8 +6,14 @@ import pandas as pd
 
 def coinbase_accounts(api_key, api_sec):
     """
-    Usng the api info, pulls the account details:
-    Account balances and account IDs
+    Usng the api info, pulls the account details: Account balances and account IDs
+
+    Args:
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+
+    Returns:
+        json: api returns dictionary of wallets, their balances and account ids
     """
     r =  coinbase_request('accounts',{'limit' : 100,'order' : 'desc'}, api_key, api_sec)
     return r
@@ -15,9 +21,15 @@ def coinbase_accounts(api_key, api_sec):
 
 def coinbase_transactions(api_key, api_sec):
     """
-    Using the api details info:
-    Pull transactions, create a DF with all balance changes by date
-    Returns the DF aswell as the currencies included
+    Using the api details info, Pull transactions, create a DataFrame with all balance changes by date
+
+    Args:
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+
+    Returns:
+        pandas.DataFrame: dataframe containing all the transactions tied to the accounts under the API Call authenticator
+        list: list of currencies in the data frame
     """
     r = coinbase_accounts(api_key, api_sec)
 
@@ -51,10 +63,15 @@ def coinbase_transactions(api_key, api_sec):
 
 def coinbase_balances(api_key, api_sec):
     """
-    Pull Balances into a dataframe using the api creds
-    Returns dict of balances
+    Usng the api info, pulls the account balances
+
+    Args:
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+
+    Returns:
+        dict: dictionary of assets and the associated balances
     """
-    # Pull Balances
     r = coinbase_accounts(api_key, api_sec)
 
     account_balances = {}
@@ -66,16 +83,24 @@ def coinbase_balances(api_key, api_sec):
 
     return account_balances
 
-def coinbase_pull_all(api_key, api_sec, daily_prices_ls=daily_prices_ls, daily_prices_df=daily_prices_df ):
+# def coinbase_pull_all(api_key, api_sec, daily_prices_ls=daily_prices_ls, daily_prices_df=daily_prices_df ):
+def coinbase_pull_all(api_key, api_sec, daily_prices_ls=[], daily_prices_df = pd.DataFrame()):
     """
     Process flow for all coinbase data
-    Returns 
-        - dataframe for balance changes by date
-        - dataframe with daily price data for all associated assets traded within the API
-        - dict with current balances
-        - ls of currencies used
-        - ls of successfully pulled daily prices
-    """
+
+    Args:
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+        daily_prices_ls (list, optional): any pairs in this list will not be pulled again. Defaults to [].
+        daily_prices_df (pandas.DataFrame(), optional): prices will be appended to this dataframe. Defaults to blank pandas.DataFrame().
+
+    Returns:
+        pandas.DataFrame: balance changes by date
+        pandas.DataFrame: daily price data for all associated assets traded within the API
+        dict: current balances
+        list: currencies used
+        list: successfully pulled daily prices
+    """    
     ## TRANSACTIONS DATA
     balance_df, currencies = coinbase_transactions(api_key, api_sec)
     

@@ -11,7 +11,14 @@ def split_pair(pair, accepted_currencies=accepted_currencies):
     If one asset is provided, that asset will return in a duplicated array 
     e.g.
     split_pair('VTC') return ['VTC','VTC']
-    """
+
+    Args:
+        pair (str): ASSET/ASSET string which should be split into two currencies. 
+        accepted_currencies (list, optional): list of currencies which the pair can be split into. Defaults to accepted_currencies.
+
+    Returns:
+        list: list of size 2 containing each asset which the pair was split into
+    """    
     default_pair = {'found':False,
              'currency_short':'',
              'currency_long':''}
@@ -42,8 +49,15 @@ def split_pair(pair, accepted_currencies=accepted_currencies):
 def parse_pairs_from_series(df, series_name):
     """
     Adjust a dataframe - take the series and split into two columns
-    Returns the adjusted dataframe and the new column names
-    """
+
+    Args:
+        df (pandas.DataFrame): Pandas Dataframe containing the series which should be processed
+        series_name (str): string representing a pandas.Series which should be processed
+
+    Returns:
+        pandas.DataFrame: adjusted dataframe and the new column names
+        list: list of the series names which the series_name was parsed into
+    """        
     pair_cols = ['pair_1','pair_2']
     
     pair_df = df[series_name].astype('str').apply(split_pair).apply(pd.Series)
@@ -52,11 +66,17 @@ def parse_pairs_from_series(df, series_name):
     
     return df, pair_cols
 
-def remap_and_dedupe_assets(ls, remap_assets=remap_assets):  
+def remap_and_dedupe_assets(ls, remap_assets=remap_assets): 
     """
-    Rename any assets in the list according to the default 'remap_assets' dict in the config
-    Returns a list of unique assets
-    """ 
+    Rename any assets in the list according to the provided dictionary
+
+    Args:
+        ls (list): list of assets which should be deduped and renamed
+        remap_assets (dict, optional): dictionairy to apply the rename ruling. Defaults to remap_assets from config.py.
+
+    Returns:
+        list: unique and remapped assets
+    """     
     i=0
     for asset in ls:
         if asset in remap_assets.keys():
@@ -68,23 +88,36 @@ def remap_and_dedupe_assets(ls, remap_assets=remap_assets):
             ls.remove(asset)
     return list(set(ls))
 
-def remap_series(df, series_name, remap_assets=remap_assets):  
+def remap_series(df, series_name, remap_assets=remap_assets): 
     """
-    Rename any assets in the dataframe according to the default 'remap_assets' dict in the config
-    Returns the adjusted dataframe
-    """ 
+    Rename any assets in the dataframe according to theprovided dictionary
+
+    Args:
+        df (pandas.DataFrame): Pandas Dataframe containing the series which should be processed
+        series_name (str): string representing a pandas.Series which should be processed
+        remap_assets (dict, optional): dictionairy to apply the rename ruling. Defaults to remap_assets from config.py.
+
+    Returns:
+        pandas.DataFrame: adjusted dataframe
+    """     
     for asset in remap_assets:
         df[series_name] = df[series_name].str.replace(asset,remap_assets[asset])
     return df
 
 def kraken_aggregate_balances_per_day_trade(df, currencies, pair_cols):
     """
-    Return a dataframe which has a column for each asset in the currencies ls
+    create a dataframe which has a column for each asset in the currencies ls
     these columns will have the balance change for each date
-    Works off the assumption that there are two columns (pair_cols)
-        The first pair column is the valule for buy and sell volume
-        The second pair column is the valule for fees and cost
-        (THIS IS HOW IT'S SET TO BE IN KRAKEN)
+
+    Args:
+        df (pandas.DataFrame): Pandas Dataframe containing the data to be aggregated
+        currencies (list): list of currencies which should be aggregated
+        pair_cols (list): two items which represent columns with the same names in df:
+        - The first pair column is the value for buy and sell volume
+        - The second pair column is the valule for fees and cost
+
+    Returns:
+        pandas.DataFrame: aggregated data with a column for each currency listing each balance change per date
     """
     
     df['vol'] = df['vol'].astype('float')
@@ -106,10 +139,16 @@ def kraken_aggregate_balances_per_day_trade(df, currencies, pair_cols):
 
 def kraken_aggregate_balances_per_day_ledger(df, currencies):
     """
-    Return a dataframe which as a column for each asset in the currencies ls
+    create a dataframe which has a column for each asset in the currencies ls
     these columns will have the balance change for each date
-    """
-    
+
+    Args:
+        df (pandas.DataFrame): Pandas Dataframe containing the data to be aggregated
+        currencies (list): list of currencies which should be aggregated
+
+    Returns:
+        pandas.DataFrame: aggregated data with a column for each currency listing each balance change per date
+    """    
     df['fee'] = df['fee'].astype('float')
     for currency in currencies:
         if currency not in df.columns:
@@ -130,10 +169,19 @@ def kraken_aggregate_balances_per_day_ledger(df, currencies):
 
 def coinbase_aggregate_balances_per_day(df, currencies, pair_cols=['pair_1','pair_2']):
     """
-    Return a dataframe which has a column for each asset in the currencies ls
+    create a dataframe which has a column for each asset in the currencies ls
     these columns will have the balance change for each date
-    """
-    
+
+    Args:
+        df (pandas.DataFrame): Pandas Dataframe containing the data to be aggregated
+        currencies (list): list of currencies which should be aggregated
+        pair_cols (list): two items which represent columns with the same names in df:
+        - The first pair column is the value for buy and sell volume
+        - The second pair column is the valule for fees and cost
+
+    Returns:
+        pandas.DataFrame: aggregated data with a column for each currency listing each balance change per date
+    """    
     df['fee'] = df['fee'].fillna(0).astype('float')
     df['vol'] = df['vol'].fillna(0).astype('float')
     df['cost'] = df['cost'].fillna(0).astype('float')
@@ -148,24 +196,54 @@ def coinbase_aggregate_balances_per_day(df, currencies, pair_cols=['pair_1','pai
     
     return df.groupby('date').agg('sum')[currencies]
 
-def load_key():
+def load_key():    
+    """
+    Load the decryption key from environmental variables
+
+    Returns:
+        str (utf-8): encoded decryption key
+    """    
     if os.getenv('KEY') == None:
         key = input("""
-Please enter password:
-""")
+        Please enter password:
+        """)
         os.environ['KEY'] = key
 
     return os.environ['KEY'].encode('utf-8')
 
 def generate_new_key():
+    """
+    Generate a new decryption key
+
+    Returns:
+        str (utf-8): encoded decryption key
+    """
     return Fernet.generate_key()
 
-def encrypt(passw):
+def encrypt(str):
+    """
+    encrypt string using the key in global variables (if not stored, will prompt for it)
+
+    Args:
+        str (str): string to be encrypted, must be encoded
+
+    Returns:
+        str (utf-8): encrypted string
+    """
     key = load_key()
     cipher_suite = Fernet(key)
-    return cipher_suite.encrypt(passw)
+    return cipher_suite.encrypt(str)
     
-def decrypt(e_passw):
+def decrypt(str):
+    """
+    decrypt string using the key in global variables (if not stored, will prompt for it)
+
+    Args:
+        str (str): string to be decrypted, must be encoded
+
+    Returns:
+        str (utf-8): decrypted string
+    """
     key = load_key()
     cipher_suite = Fernet(key)
-    return cipher_suite.decrypt(e_passw)
+    return cipher_suite.decrypt(str)

@@ -16,12 +16,27 @@ from requests.auth import AuthBase
 class CoinbaseWalletAuth(AuthBase):
     """
     Create custom authentication for Coinbase API
-    """
+
+    Args:
+        AuthBase (requests.auth.AuthBase)
+    """    
     def __init__(self, api_key, secret_key):
+        """
+        Args:
+            api_key (str): encoded API key
+            secret_key (str): encoded API secret
+        """        
         self.api_key = api_key
         self.secret_key = secret_key
 
     def __call__(self, request):
+        """
+        Args:
+            request (requests.request): [description]
+
+        Returns:
+            requests.auth.AuthBase: Authbase to be used in authenticating Coinbase API calls
+        """        
         timestamp = str(int(time.time()))
         message = timestamp + request.method + request.path_url + (request.body or b'')
         signature = hmac.new(self.secret_key, message.encode(), hashlib.sha256).hexdigest()
@@ -35,6 +50,18 @@ class CoinbaseWalletAuth(AuthBase):
         return request
 
 def coinbase_request(uri_path, data, api_key, api_sec):
+    """
+    Call the Coinbase API to request data
+
+    Args:
+        uri_path (str): path to append to the default coinbase api url which will be requested from 
+        data (dict): additional configurations for the call
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+
+    Returns:
+        json: result from the api call
+    """
     api_url = 'https://api.coinbase.com/v2/'
     
     if os.environ['ENCRYPT'] == 'True':
@@ -47,6 +74,17 @@ def coinbase_request(uri_path, data, api_key, api_sec):
         
 # KRAKEN 
 def get_kraken_signature(urlpath, data, secret):
+    """
+    Create authentication signature for kraken API
+
+    Args:
+        uri_path (str): path to append to the url where the signature will be requested from
+        data (dict): additional configurations for the call
+        secret (str): api secret for the call
+
+    Returns:
+        str: encoded signature
+    """    
     postdata = urllib.parse.urlencode(data)
     encoded = (str(data['nonce']) + postdata).encode()
     message = urlpath.encode() + hashlib.sha256(encoded).digest()
@@ -56,6 +94,18 @@ def get_kraken_signature(urlpath, data, secret):
     return sigdigest.decode()
 
 def kraken_request(uri_path, data, api_key, api_sec):
+    """
+    Call the Kraken API to request data
+
+    Args:
+        uri_path (str): path to append to the default kraken api url which will be requested from 
+        data (dict): additional configurations for the call
+        api_key (str): api key for the call
+        api_sec (str): api secret for the call
+
+    Returns:
+        json: result from the api call
+    """
     api_url = "https://api.kraken.com"
 
     if os.environ['ENCRYPT'] == 'True':
@@ -71,9 +121,16 @@ def kraken_request(uri_path, data, api_key, api_sec):
 ## PUBLIC API FUNCTIONS
 def process_daily_price_data(response, exchange):
     """
-    Process Daily Price Data Json Response
-    Returns dataframe
-    """
+    Process Daily Price Data Json Response into a dataframe
+    This function will get Open/High/Low/Close, Volume and tradecount data for the pair passed
+
+    Args:
+        response (json): result from an API call to an exchange
+        exchange (str): kraken/Coinbase - source of the API call
+
+    Returns:
+        pandas.DataFrame: contains price information for the pair within the response. Parses into price detail columns
+    """    
     data = pd.DataFrame()
     if exchange == 'kraken': 
         if 'result' in json.loads(response.text).keys():  
@@ -101,9 +158,15 @@ def process_daily_price_data(response, exchange):
 
 def fetch_daily_price_individual(symbol, exchange):
     """
+    Fetch and process data for symbol using the exchange API.
     This function will get Open/High/Low/Close, Volume and tradecount data for the pair passed
-    symbol must be in format XXX/XXX ie. BTC/USD
-    Only Kraken and Coinbase supported
+
+    Args:
+        symbol (str): Assets in the format of XXX/XXX e.g. BTC/USD
+        exchange (str): kraken/Coinbase - source for the API call
+
+    Returns:
+        pandas.DataFrame: contains price information for the pair within the response. Parses into price detail columns
     """    
     data=pd.DataFrame()
     pair_split = symbol.split('/')
@@ -126,9 +189,19 @@ def fetch_daily_price_individual(symbol, exchange):
 
 def fetch_daily_price_pairs(pairs, exchange, dta=[], daily_prices_df = pd.DataFrame()):
     """
-    PULL DAILY PRICES FOR SPECIFIC PAIRS (This is a public API - doesn't need credentials)
-    RETURNS A DATAFRAME AND A DICTIONARY WITH KEY: PAIR AND VALUE = DATAFRAME OF THE DAILY DATA
-    """        
+    Pull daily prices for provided pairs (This is a public API - doesn't need credentials)
+    returns a dataframe and a dictionary with the Pair and dataframe of the daily data
+
+    Args:
+        pairs (str): list of symbols in the format of XXX/XXX e.g. BTC/USD
+        exchange (str): kraken/Coinbase - source for the API call
+        dta (list, optional): any pairs in this list will not be pulled again. Defaults to [].
+        daily_prices_df (pandas.DataFrame(), optional): prices will be appended to this dataframe. Defaults to blank pandas.DataFrame().
+
+    Returns:
+        Pandas.DataFrame: dataframe of price daily data in one column per pair - the price is the average between the high and low that day
+        list: list of pairs which have been successfully pulled (appends)
+    """    
     for pair in pairs:
         if pair not in dta:
             print(f'new pair found! Pulling data for {pair}')
@@ -149,9 +222,15 @@ def fetch_daily_price_pairs(pairs, exchange, dta=[], daily_prices_df = pd.DataFr
 
 def kraken_fetch_SPREAD_data(symbol):
     """
+    Fetch and process data for symbol using the exchange API.
     This function will return the nearest bid/ask and calculate the spread for the symbol passed
-    symbol must be in format XXX/XXX ie. BTC/USD
-    """
+
+    Args:
+        symbol (str): Assets in the format of XXX/XXX e.g. BTC/USD
+
+    Returns:
+        pandas.DataFrame: contains price information for the pair within the response. Parses into price detail columns
+    """    
     pair_split = symbol.split('/') 
     symbol = pair_split[0] + pair_split[1]
     url = f'https://api.kraken.com/0/public/Spread?pair={symbol}'
@@ -180,10 +259,15 @@ def kraken_fetch_SPREAD_data(symbol):
 ## DATA PROCESSING
 def kraken_parse_api_results(resp, result_type):
     """
-    Look at the results field of the API response.
-    Result_type specifies the key within the response where the data lies.
-    Returns as a dataframe
-    """
+    parse the results field of the API response.
+
+    Args:
+        resp (json): response from API call
+        result_type (str): specifies the key within the response where the data lies.
+
+    Returns:
+        pandas.DataFrame: dataframe with cleaned results and datetimes
+    """    
 
     df = pd.DataFrame()
     if 'result' not in resp.json().keys():
@@ -199,10 +283,14 @@ def kraken_parse_api_results(resp, result_type):
 
 def coinbase_parse_api_results(resp):
     """
-    Look at the data field of the API response.
-    Includes logic to treat TRADES/BUYS/SENDS differently
-    Returns as a dataframe
-    """      
+    parse the results field of the API response. Treats TRADES/BUYS/SENDS differently
+
+    Args:
+        resp (json): response from API call
+
+    Returns:
+        pandas.DataFrame: dataframe with cleaned results and datetimes
+    """    
 
     df = pd.DataFrame()
     if 'data' not in resp.json().keys():
