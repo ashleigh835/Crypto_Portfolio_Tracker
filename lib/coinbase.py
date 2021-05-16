@@ -1,6 +1,8 @@
-from config import daily_prices_ls, daily_prices_df, api_dict, pairs, accepted_currencies
-from functions import parse_pairs_from_series, remap_series, remap_and_dedupe_assets, coinbase_aggregate_balances_per_day
-from API_functions import coinbase_request, coinbase_parse_api_results, fetch_daily_price_pairs
+import sys
+sys.path.append('../')
+from config import api_dict, pairs, accepted_currencies
+from lib.functions import parse_pairs_from_series, remap_series, remap_and_dedupe_assets, coinbase_aggregate_balances_per_day
+from lib.API_functions import coinbase_request, coinbase_parse_api_results, fetch_daily_price_pairs
 
 import pandas as pd
 
@@ -112,7 +114,7 @@ def coinbase_pull_all(api_key, api_sec, daily_prices_ls=[], daily_prices_df = pd
 
     return balance_df, daily_prices_df, account_balances_df, currencies, daily_prices_ls
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     api_key = api_dict['Coinbase']['key']
     api_sec = api_dict['Coinbase']['sec']
 

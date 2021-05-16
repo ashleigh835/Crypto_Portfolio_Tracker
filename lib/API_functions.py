@@ -1,4 +1,4 @@
-from functions import decrypt
+from lib.functions import decrypt
 
 import os
 import time
