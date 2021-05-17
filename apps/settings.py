@@ -1,5 +1,6 @@
 from app import app
-from lib.dash_functions import load_settings, add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, generate_wallet_cards
+from lib.dash_functions import generate_wallet_cards
+from lib.functions import load_settings, add_entry_to_json, remove_entry_from_json, get_latest_index_from_json
 
 import json
 from datetime import datetime
@@ -35,9 +36,7 @@ layout = html.Div(
 wallet_content = html.Div(id='wallet')
 user_content = html.Div("COMING SOON!", id='user')
 
-@app.callback(Output('settings-tab-content-settings', 'children'),
-              Input('settings-tab', 'value')
-    )
+@app.callback(Output('settings-tab-content-settings', 'children'),Input('settings-tab', 'value'))
 def render_tab_content(tab):
     """
     Render tab content based on the selected tab
@@ -54,8 +53,7 @@ def render_tab_content(tab):
     if tab == 'User':
         return user_content
 
-@app.callback(Output('wallet', 'children'),
-              Input('memory', 'data'))
+@app.callback(Output('wallet', 'children'),Input('memory', 'data'))
 def load_wallet_data(data):
     """
     trigger when the stored data for id 'memory' changes and updates the children of the tab_content
@@ -75,19 +73,15 @@ def load_wallet_data(data):
     else:
         raise PreventUpdate
 
-@app.callback(
-    Output("APIs-modal", "is_open"),
-    [   Input("add-APIs-modal", "n_clicks"), 
-        Input("API-close", "n_clicks")
-    ]
-)
-def toggle_API_modal(n1,n2):
+@app.callback(Output("APIs-modal", "is_open"),Input("add-APIs-modal", "n_clicks"), Input("API-close", "n_clicks"),State('encryption-key-set','data'))
+def toggle_API_modal(n1,n2,key_set):
     """
     Show or hide the modal based on which button was clicked
 
     Args:
         n1 (n_clicks): number of times 'add-APIs-modal' has been clicked
         n2 (n_clicks): number of times 'API-close' has been clicked
+        key_set (bool): whether the key has been set or not, stored in the dcc.Store method
 
     Raises:
         PreventUpdate: doesn't update if the trigger didn't come from a click
@@ -97,27 +91,23 @@ def toggle_API_modal(n1,n2):
     """
     ctx = dash.callback_context
     if (len(ctx.triggered)>0) & ([n1,n2] != [None]*2):
-        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
-        if trg == "add-APIs-modal":
-            return True
-        elif trg == "API-close":
-            return False
-    else:
-        raise PreventUpdate
+        if key_set == True:
+            trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+            if trg == "add-APIs-modal":
+                return True
+            elif trg == "API-close":
+                return False
+    raise PreventUpdate
 
-@app.callback(
-    Output("Addresses-modal", "is_open"),
-    [   Input("add-Addresses-modal", "n_clicks"), 
-        Input("Addresses-close", "n_clicks")
-    ]
-)
-def toggle_Addresses_modal(n1,n2):
+@app.callback(Output("Addresses-modal", "is_open"),Input("add-Addresses-modal", "n_clicks"), Input("Addresses-close", "n_clicks"),State('encryption-key-set','data'))
+def toggle_Addresses_modal(n1,n2,key_set):
     """
     Show or hide the modal based on which button was clicked
 
     Args:
         n1 (n_clicks): number of times 'add-Addresses-modal' has been clicked
         n2 (n_clicks): number of times 'Addresses-close' has been clicked
+        key_set (bool): whether the key has been set or not, stored in the dcc.Store method
 
     Raises:
         PreventUpdate: doesn't update if the trigger didn't come from a click
@@ -127,13 +117,13 @@ def toggle_Addresses_modal(n1,n2):
     """
     ctx = dash.callback_context
     if (len(ctx.triggered)>0) & ([n1,n2] != [None]*2):
-        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
-        if trg == "add-Addresses-modal":
-            return True
-        elif trg == "Addresses-close":
-            return False
-    else:
-        raise PreventUpdate
+        if key_set == True:
+            trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+            if trg == "add-Addresses-modal":
+                return True
+            elif trg == "Addresses-close":
+                return False
+    raise PreventUpdate
 
 @app.callback( 
     Output('wallet-address','invalid'), 
@@ -148,12 +138,16 @@ def toggle_Addresses_modal(n1,n2):
         State('api-key', 'value'),
         State('api-sec', 'value'),
         State('api-pass', 'value'),
+        State('api-key','invalid'), 
+        State('api-sec','invalid'),
         State('asset-dd', 'value'),
         State('wallet-address', 'value'),
+        State('wallet-address','invalid'), 
+        State('encryption-key','data'),
     ]
     , prevent_initial_call = True
 )
-def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, asset, address):
+def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, bad_api_key, bad_api_sec, asset, address, bad_address, stored_key):
     """
     Add/remove a wallet to/from the json data file
 
@@ -166,8 +160,12 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, a
         api_key (str): api key entered in the input box of the api modal
         api_sec (str): api secret entered in the input box of the api modal
         api_pass (str): api passphrase entered in the input box of the api modal
+        bad_api_key (bool): current validity status of the api_key input
+        bad_api_sec (bool): current validity status of the api_sec input
         asset (str): asset selected in the dropdown of the address modal
         address (str): address entered in the input box of the address modal
+        bad_address (bool): current validity status of the address input
+        stored_key (str): stored decryption key
 
     Raises:
         PreventUpdate: doesn't add/remove if the trigger didn't come from a click or the address/API details were invalid
@@ -179,12 +177,11 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, a
         dict: freshly reloaded json data dict from file after adding/removing info
     """
     ctx = dash.callback_context
-    bad_api_key = False
-    bad_api_sec = False 
-    bad_address = False
     if (len(ctx.triggered)>0) & (([n1,n2]+n3+n4) != ([None]*(2+len(n3)+len(n4)))):
         trg = ctx.triggered[0]['prop_id'].split('.')[0]
         if trg == 'add-api':
+            bad_api_key = False
+            bad_api_sec = False 
             if api_key in [None,'']:
                 bad_api_key = True
             if api_sec in [None,'']:
@@ -206,11 +203,11 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, a
                 add_entry_to_json('APIs', exch)
                 return bad_address, bad_api_key, bad_api_sec, load_settings()
 
-            return bad_address, bad_api_key, bad_api_sec, None
+            return False, bad_api_key, bad_api_sec, None
         elif trg == 'add-addresses':
+            bad_address = False
             if address in [None,'']:
-                bad_address = True
-
+                return True, bad_api_key, bad_api_sec, None
             else:
                 max_index = get_latest_index_from_json('Addresses')
 
@@ -223,8 +220,7 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, a
                 }  
                 app.logger.info(f"adding entry {addr} to json")
                 add_entry_to_json('Addresses', addr)
-                return bad_address, bad_api_key, bad_api_sec, load_settings()  
-            return bad_address, bad_api_key, bad_api_sec, None
+                return False, bad_api_key, bad_api_sec, load_settings()  
 
         else:
             trg_dta = json.loads(trg)
