@@ -2,9 +2,9 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 
-from lib.functions import mask_str
+from lib.functions import mask_str, decrypt
 
-def generate_individual_wallet_listgroup(wallets,wallet_type):
+def generate_individual_wallet_listgroup(wallets,wallet_type,key=''):
     """
     Generate list of the wallets for a specific wallet subtype e.g.
     - creates a list of all the sub wallets listed under Kraken exchange or
@@ -17,6 +17,7 @@ def generate_individual_wallet_listgroup(wallets,wallet_type):
         -   'id'
 
         wallet_type (str): Addresses/APIs - Whether the list of contains Addresses or APIs respectively
+        key (str, optional): decryption key
 
     Returns:
         list: list of html listgroups of the sub addresses provided 
@@ -24,15 +25,20 @@ def generate_individual_wallet_listgroup(wallets,wallet_type):
     wallet_name_dct = {'APIs' : 'api_key', 'Addresses' : 'address' }
     ls=[]
     for wallet in wallets: 
-        wallet_str = [
-            html.Span(f"{mask_str(wallet[wallet_name_dct[wallet_type]])}", style={'color':'CornflowerBlue'}),
-            html.Span(f" added {wallet['time_added']}", style={'font-size':'smaller'} ) 
-        ]
+        if key == '':
+            wallet_str = [
+                html.Span(f"Added {wallet['time_added']}", style={'font-size':'smaller'} ),
+                html.Span(f" unusable until decryption key entered", style={'font-size':'smaller', 'font-style': 'italic', 'color' : 'LightCoral'} ) 
+            ]
+        else:
+            wallet_str = [
+                html.Span(f"{mask_str(decrypt(wallet[wallet_name_dct[wallet_type]].encode(), key).decode())}", style={'color':'CornflowerBlue'}),
+                html.Span(f" added {wallet['time_added']}", style={'font-size':'smaller'} ) 
+            ]
         ls+=[   
             dbc.ListGroupItem(
                 [   dbc.Row(
                         [   dbc.Col(wallet_str,className="card-text"),
-                        # [   dbc.Col(html.P(wallet_str,className="card-text")),
                             dbc.Col(
                                 dbc.Button(children=[html.I(className="fas fa-minus-square", style={'color':'red'})], size='sm', color='link',
                                     style={'margin':'0',"padding":"0",'background-color': 'white', 'float':'right','align':'center'},
@@ -47,7 +53,7 @@ def generate_individual_wallet_listgroup(wallets,wallet_type):
         ]
     return ls
 
-def generate_wallet_card_body(wallet_subtypes, wallet_type):
+def generate_wallet_card_body(wallet_subtypes, wallet_type, key=''):
     """
     generate list of listgroups for the wallets within all wallet subtypes e.g.
     - creates a list of all the exchange sub wallets listed under API Wallets and Address Wallets etc. 
@@ -55,6 +61,7 @@ def generate_wallet_card_body(wallet_subtypes, wallet_type):
     Args:
         wallet_subtypes (dict): dictionary of {wallet_subtype:[list of wallets]}
         wallet_type (str): Addresses/APIs - Whether the list of contains Addresses or APIs respectively
+        key (str, optional): decryption key
 
     Returns:
         list: list of html card bodies for each key in wallet_subtypes
@@ -64,7 +71,7 @@ def generate_wallet_card_body(wallet_subtypes, wallet_type):
         ls+=dbc.CardBody(
             [   dbc.CardHeader(wallet_subtype,style={'background-color': 'white', 'font-weight': 'bold'}),
                 dbc.ListGroup(
-                    generate_individual_wallet_listgroup(wallet_subtypes[wallet_subtype], wallet_type),
+                    generate_individual_wallet_listgroup(wallet_subtypes[wallet_subtype], wallet_type, key),
                     flush=True,
                 ),
             ]
@@ -89,13 +96,14 @@ def generate_wallet_card_header(header, wallet_type):
         )
     ]
 
-def generate_wallet_content(wallet_subtypes, wallet_type):
+def generate_wallet_content(wallet_subtypes, wallet_type, key=''):
     """
     determine whether to produce cards or a default card when no wallets exist for the wallet_subtype
 
     Args:
         wallet_subtypes (dict): dictionary of {wallet_subtype:[list of wallets]}
         wallet_type (str): Addresses/APIs - Whether the list of contains Addresses or APIs respectively
+        key (str, optional): decryption key
 
     Returns:
         list: list of html children containing card bodies of wallet_subtypes
@@ -103,7 +111,7 @@ def generate_wallet_content(wallet_subtypes, wallet_type):
     if len(wallet_subtypes) == 0:
         return html.P(f"Looks like you haven't added any {wallet_type} yet! Click to Add", className="card-text")
     else:
-        return dbc.Card(generate_wallet_card_body(wallet_subtypes,wallet_type))
+        return dbc.Card(generate_wallet_card_body(wallet_subtypes,wallet_type,key))
 
 def generate_modal_form_group(lbl, formId, feedback, formTxt):
     """
@@ -151,12 +159,13 @@ def generate_modal_footer(formId):
         ]
     )
 
-def generate_wallet_cards(wallet_dict):
+def generate_wallet_cards(wallet_dict, key=''):
     """
     generates a card for each wallet_type. wallet_type cards contain a card for each wallet_subtype. Each wallet_subtype card houses a list of wallets
 
     Args:
         wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        key (str, optional): decryption key
 
     Returns:
         list: list of html children containing cards of wallets
@@ -221,7 +230,7 @@ def generate_wallet_cards(wallet_dict):
     cards = []
     for wallet_type in wallet_dict:
         main_exchange_wallet_header = generate_wallet_card_header(wallet_type_titles[wallet_type],wallet_type)
-        exchange_wallet_card_body = generate_wallet_content(wallet_dict[wallet_type],wallet_type)
+        exchange_wallet_card_body = generate_wallet_content(wallet_dict[wallet_type],wallet_type, key)
         cards += [
             dbc.Card(
                 [   dbc.CardHeader(main_exchange_wallet_header),

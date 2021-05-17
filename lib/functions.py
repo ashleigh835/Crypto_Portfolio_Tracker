@@ -221,7 +221,7 @@ def generate_new_key():
     """
     return Fernet.generate_key()
 
-def encrypt(str):
+def encrypt(str, key = ''):
     """
     encrypt string using the key in global variables (if not stored, will prompt for it)
 
@@ -231,11 +231,12 @@ def encrypt(str):
     Returns:
         str (utf-8): encrypted string
     """
-    key = load_key()
+    if key == '':
+        key = load_key()
     cipher_suite = Fernet(key)
     return cipher_suite.encrypt(str)
     
-def decrypt(str):
+def decrypt(str, key = ''):
     """
     decrypt string using the key in global variables (if not stored, will prompt for it)
 
@@ -245,7 +246,8 @@ def decrypt(str):
     Returns:
         str (utf-8): decrypted string
     """
-    key = load_key()
+    if key == '':
+        key = load_key()
     cipher_suite = Fernet(key)
     return cipher_suite.decrypt(str)
 
@@ -325,7 +327,7 @@ def update_settings(wallet_dict):
     app_settings_file = locate_settings()[1]
     wallet_dict = clean_json(wallet_dict)
     with open(app_settings_file, 'w') as outfile:
-        json.dump(wallet_dict, outfile)
+        json.dump(wallet_dict, outfile, indent=4, sort_keys=True)
 
 # wallet_dict (dict) = {
 #     wallet_type : {

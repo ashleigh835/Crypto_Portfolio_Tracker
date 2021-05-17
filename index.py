@@ -32,7 +32,7 @@ encrypt_modal = dbc.Modal(
     [   dbc.ModalHeader("Encryption Key"),
         dbc.FormGroup(
             [   dbc.Input(type="text", id='encrypt-input'),
-                dbc.FormFeedback('must be a valid Fernet key.', valid=False),
+                dbc.FormFeedback('Must be a valid Fernet key', valid=False),
                 dbc.FormText(encrypt_text,color="secondary")
             ],
             style={ 'padding':'2%'}
@@ -53,8 +53,7 @@ encrypt_modal = dbc.Modal(
     centered=True,
     is_open=False,
 )
-# Temporary button to check the current encryption Key
-navtest=dbc.Button('test-key', id = 'encrypt-test', className="mt-md-0")
+
 # Navigation Bar layout - conists of the icon, Title and dropdown menu
 navbar = dbc.Navbar(
     [   dcc.Store(id='encryption-key', storage_type='memory'),
@@ -67,7 +66,7 @@ navbar = dbc.Navbar(
                 no_gutters = True
             ),
         ),
-        dbc.Collapse([navtest,nav_encrypt, nav_drop_down, encrypt_modal], id="navbar-collapse", navbar=True),
+        dbc.Collapse([nav_encrypt, nav_drop_down, encrypt_modal], id="navbar-collapse", navbar=True),
 
     ],
     color='dark',
@@ -155,7 +154,7 @@ def display_page(pathname):
 )
 def store_encryption(n1,n2,key_input,stored_key):
     """
-    [summary]
+    use the entered key or generate key and store in memory
 
     Args:
         n1 (n_clicks): number of times 'encrypt-submit' has been clicked (Submit Key button within the encrypt modal)
@@ -196,7 +195,7 @@ def store_encryption(n1,n2,key_input,stored_key):
 )
 def encryption_set(n1,n2,n3,n4,key_set,btn_text,outline,disabled):
     """
-    [summary]
+    display/ hide the encryption modal and alter button style
 
     Args:
         n1 (n_clicks): number of times 'encrypt-nav' has been clicked 
@@ -218,7 +217,7 @@ def encryption_set(n1,n2,n3,n4,key_set,btn_text,outline,disabled):
         bool: whether the encrypt-nav button is disabled 
     """
     ctx = dash.callback_context
-    trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+    trg = ctx.triggered[0]['prop_id'].split('.')[0]
     if (len(ctx.triggered)>0) & ([n1,n2,n3,n4] != [None]*4):
         if (trg in ["encrypt-nav",'add-Addresses-modal','add-APIs-modal']) & (key_set == False):
             return True,btn_text,outline,disabled
