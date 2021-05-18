@@ -84,13 +84,14 @@ def kraken_ledger(api_key, api_sec, currencies):
 
     return ledger_df_bare
 
-def kraken_balances(api_key, api_sec):
+def kraken_balances(api_key, api_sec, key=''):
     """
     Usng the api info, pulls the account balances
 
     Args:
         api_key (str): api key for the call
         api_sec (str): api secret for the call
+        key (str): Fernet decryption key
 
     Returns:
         dict: dictionary of assets and the associated balances
@@ -98,7 +99,8 @@ def kraken_balances(api_key, api_sec):
     resp = kraken_request('/0/private/Balance',
                         {"nonce": str(int(1000*time.time()))},
                         api_key,
-                        api_sec)
+                        api_sec,
+                        key)
 
     account_balances = {}
     if resp.json()['result']:

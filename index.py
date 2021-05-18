@@ -219,7 +219,6 @@ def encryption_set(n1,n2,encrypt_trig,key_set,btn_text,outline,disabled):
     """
     ctx = dash.callback_context
     trg = ctx.triggered[0]['prop_id'].split('.')[0]
-    app.logger.info([n1,n2,encrypt_trig,key_set])
     if (len(ctx.triggered)>0) & ([n1,n2,encrypt_trig,key_set] != ([None]*2 + [False]*2)):
         if (trg in ["encrypt-nav",'settings_encryption_trigger']) & (key_set == False):
             return True,btn_text,outline,disabled

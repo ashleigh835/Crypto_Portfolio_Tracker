@@ -27,6 +27,13 @@ def split_pair(pair, accepted_currencies=accepted_currencies):
     
     for curr in accepted_currencies:
         for curr2 in [curr,'X'+curr,'XX'+curr,'Z'+curr]:
+            if (pair == curr2) & (return_pair[0]['found'] == return_pair[1]['found'] == False):
+                return_pair[0]['found'] = True
+                return_pair[0]['currency_short']=curr
+                return_pair[0]['currency_long']=curr2
+                return_pair[1]['found'] = True
+                return_pair[1]['currency_short']=curr
+                return_pair[1]['currency_long']=curr2
             if (pair.startswith(curr2)) & (return_pair[0]['found'] == False):
                 return_pair[0]['found'] = True
                 return_pair[0]['currency_short']=curr
@@ -405,3 +412,54 @@ def mask_str(str):
         return f"{str[0]}..."
     else:
         return f"{str[0:3]}...{str[len(str)-3:]}"
+
+def balances_from_dict(wallet_dict, key=''): 
+    """
+    Gather Balances from provided wallets into a dataframe
+
+    Args:
+        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        key (str, optional): decryption key
+
+    Returns:
+        pandas.DataFrame: DataFrame with indexed assets and a column for each source with the corresponding balances as values
+    """
+    from lib.kraken import kraken_balances
+    from lib.coinbase import coinbase_balances  
+    balance_functions = {'kraken':kraken_balances,'coinbase':coinbase_balances} 
+    df = pd.DataFrame()
+    for wallet_type in wallet_dict:
+        for wallet_subtype in wallet_dict[wallet_type]:
+            i=0
+            for wallet in wallet_dict[wallet_type][wallet_subtype]:
+                if wallet_type =='APIs':
+                    if wallet_subtype.lower() in ['kraken','coinbase']:
+                        exchage_function = balance_functions[wallet_subtype.lower()]
+                        balances = exchage_function(wallet['api_key'].encode(), wallet['api_sec'].encode(), key)
+                        for bal in balances:
+                            if len(wallet_dict[wallet_type][wallet_subtype])>1:
+                                index_str = f"{wallet_subtype}_{i}"
+                            else:
+                                index_str = wallet_subtype
+                            tmp_df = pd.DataFrame({index_str : balances[bal]},index=[split_pair(bal)[0]])
+                            tmp_df = remap_series(tmp_df.reset_index(), 'index', remap_assets=remap_assets).set_index('index')
+                            df = pd.concat([df,tmp_df], sort=True)
+                        i+=1
+    df = add_columns_by_index(df.copy())
+    return df
+
+def add_columns_by_index(df):
+    """
+    Combine columns in a dataframe into one Total column
+
+    Args:
+        df (pandas.DataFrame): dataframe containing date to be totalled
+
+    Returns:
+        pandas.DataFrame: DataFrame with appended Total column
+    """
+    columns_to_add = df.columns
+    df['Total']=0
+    for col in columns_to_add:
+        df['Total']+=df[col].fillna(0).astype('float')
+    return df.fillna('')

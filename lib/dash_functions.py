@@ -241,27 +241,42 @@ def generate_wallet_cards(wallet_dict, key=''):
         ]
     return cards
 
-def generate_balance_cards(wallet_dict, key=''):
+def generate_balance_table(df):
     """
-    generates a balance data from wallet
+    generates a table from balance dataframe
 
     Args:
-        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
-        key (str, optional): decryption key
+        df (pandas.DataFrame): DataFrame where index represents the asset with a column for each balance source and a Total column
 
     Returns:
-        TYPE: DESCRTIPTION
+        Table (dash_bootsrap_components): HTML table with data from provided table
     """        
-    cards = []
-    for wallet_type in wallet_dict:
-        # main_exchange_wallet_header = generate_wallet_card_header(wallet_type_titles[wallet_type],wallet_type)
-        # exchange_wallet_card_body = generate_wallet_content(wallet_dict[wallet_type],wallet_type, key)
-        for wallet_subtype in wallet_dict[wallet_type]:
-            cardbody = [dbc.CardHeader(wallet_subtype)]
-            for wallet in wallet_dict[wallet_type][wallet_subtype]:
-                if wallet_type =='APIs':
-                    cardbody += [dbc.CardBody(wallet['api_key'])]
-                elif wallet_type == 'Addresses':
-                    cardbody += [dbc.CardBody(wallet['address'])]
-            cards += [dbc.Card(cardbody)]
-    return cards
+    # cards = []
+    # ls=[]
+    # for asset, balances in df.iterrows():
+    #     cols_ls = []
+    #     for column in df.columns:
+    #         cols_ls+=[dbc.Col(html.Span(str(balances[column])))]
+
+    #     wallet_str = [ dbc.Row( [dbc.Col(asset)]+ cols_ls) ]
+    #     ls+=[dbc.ListGroupItem(wallet_str)]  
+    
+    # cols_ls = []
+    # for column in df.columns:
+    #     cols_ls+=[dbc.Col(html.Span(column))]
+    # wallet_str = [ dbc.Row( [dbc.Col('Asset')]+ cols_ls) ]
+
+    # cardbody = [dbc.CardHeader(wallet_str),dbc.CardBody(dbc.ListGroup(ls,flush=True))]
+    # cards += [dbc.Card(cardbody)]
+    # return cards
+
+    return dbc.Table([
+        html.Thead(
+            html.Tr([html.Th(col) for col in df.columns])
+        ),
+        html.Tbody([
+            html.Tr([
+                html.Td(df.iloc[i][col]) for col in df.columns
+            ]) for i in range(min(len(df), 10))
+        ])
+    ], striped=True, bordered=False, hover=True)

@@ -1,6 +1,7 @@
 from app import app
 
-from lib.dash_functions import generate_balance_cards
+from lib.dash_functions import generate_balance_table
+from lib.functions import balances_from_dict
 
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
@@ -20,9 +21,9 @@ exchange_dropdown = dcc.Dropdown(
 )
 
 # content style when the balances tab is selected - for now duplicate for the prices and transactions
-balances_content = [   
-    html.Div(id='balances-info')
-]
+balances_content = html.Div(
+    html.Div(dbc.Spinner(color='secondary'), style={'position':'fixed','top':'20%','left':'50%'}), id='balances-info')
+
 prices_content = [   
     dbc.Row(
         [dbc.Col(exchange_dropdown,align='center')],
@@ -31,7 +32,14 @@ prices_content = [
         style={"width": "10%",'padding-top':'3%','padding-left':'1%'}
     ),
 ]
-transactions_content = prices_content
+transactions_content = [   
+    dbc.Row(
+        [dbc.Col(exchange_dropdown,align='center')],
+        align='center',
+        no_gutters = True,
+        style={"width": "10%",'padding-top':'3%','padding-left':'1%'}
+    ),
+]
 
 
 # default style for the tab & selected tab
@@ -45,13 +53,14 @@ tab_Style = {
 layout = html.Div(
     [   dcc.Tabs(
             id='db-tab', 
-            value='home', 
+            value='bal', 
             children=[
                 dcc.Tab(label='Balances', value='bal',style=tab_Style,selected_style=tab_Style),
                 dcc.Tab(label='Prices', value='price',style=tab_Style,selected_style=tab_Style),
                 dcc.Tab(label='Transactions', value='trans',style=tab_Style,selected_style=tab_Style),
             ],
         ),
+        html.Hr(),
         html.Div(id='db-tab-content')
     ]
 )
@@ -69,7 +78,7 @@ def render_content(tab):
         html: html content based on tab selected
     """    
     if tab == 'bal':
-        return html.Div(balances_content)
+        return balances_content
     elif tab == 'price':
         return html.Div(prices_content)
     elif tab == 'trans':
@@ -93,7 +102,10 @@ def load_balance_data(data, stored_key, key_set ):
     """
     if data is not None:
         if key_set:
-            return generate_balance_cards(data['Wallets'],stored_key.encode())
+            df = balances_from_dict(data['Wallets'],stored_key.encode())
+            df = df.reset_index().rename(columns={'index':''}).sort_values('Total', ascending=False)
+            return dbc.Table.from_dataframe(df, striped=True, bordered=False, hover=True)
+            # return generate_balance_table(df)
             # return generate_wallet_cards(data['Wallets'],stored_key.encode())
         # else:
             # return generate_wallet_cards(data['Wallets'],'')

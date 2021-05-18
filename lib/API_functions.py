@@ -49,7 +49,7 @@ class CoinbaseWalletAuth(AuthBase):
         })
         return request
 
-def coinbase_request(uri_path, data, api_key, api_sec):
+def coinbase_request(uri_path, data, api_key, api_sec, key=''):
     """
     Call the Coinbase API to request data
 
@@ -57,16 +57,16 @@ def coinbase_request(uri_path, data, api_key, api_sec):
         uri_path (str): path to append to the default coinbase api url which will be requested from 
         data (dict): additional configurations for the call
         api_key (str): api key for the call
-        api_sec (str): api secret for the call
+        api_sec (str): api secret for the call        
+        key (str): Fernet decryption key
 
     Returns:
         json: result from the api call
     """
     api_url = 'https://api.coinbase.com/v2/'
     
-    if os.environ['ENCRYPT'] == 'True':
-        api_key = decrypt(api_key)
-        api_sec = decrypt(api_sec)
+    api_key = decrypt(api_key, key)
+    api_sec = decrypt(api_sec, key)
         
     auth = CoinbaseWalletAuth(api_key, api_sec)
     req = requests.get((api_url + uri_path),data=data,auth=auth)
@@ -93,7 +93,7 @@ def get_kraken_signature(urlpath, data, secret):
     sigdigest = base64.b64encode(mac.digest())
     return sigdigest.decode()
 
-def kraken_request(uri_path, data, api_key, api_sec):
+def kraken_request(uri_path, data, api_key, api_sec, key=''):
     """
     Call the Kraken API to request data
 
@@ -101,16 +101,16 @@ def kraken_request(uri_path, data, api_key, api_sec):
         uri_path (str): path to append to the default kraken api url which will be requested from 
         data (dict): additional configurations for the call
         api_key (str): api key for the call
-        api_sec (str): api secret for the call
+        api_sec (str): api secret for the call   
+        key (str): Fernet decryption key
 
     Returns:
         json: result from the api call
     """
     api_url = "https://api.kraken.com"
 
-    if os.environ['ENCRYPT'] == 'True':
-        api_key = decrypt(api_key)
-        api_sec = decrypt(api_sec)
+    api_key = decrypt(api_key, key)
+    api_sec = decrypt(api_sec, key)
 
     headers = {}
     headers['API-Key'] = api_key

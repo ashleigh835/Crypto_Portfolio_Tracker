@@ -6,18 +6,19 @@ from lib.API_functions import coinbase_request, coinbase_parse_api_results, fetc
 
 import pandas as pd
 
-def coinbase_accounts(api_key, api_sec):
+def coinbase_accounts(api_key, api_sec, key=''):
     """
     Usng the api info, pulls the account details: Account balances and account IDs
 
     Args:
         api_key (str): api key for the call
         api_sec (str): api secret for the call
+        key (str): Fernet decryption key
 
     Returns:
         json: api returns dictionary of wallets, their balances and account ids
     """
-    r =  coinbase_request('accounts',{'limit' : 100,'order' : 'desc'}, api_key, api_sec)
+    r =  coinbase_request('accounts',{'limit' : 100,'order' : 'desc'}, api_key, api_sec, key)
     return r
 
 
@@ -63,18 +64,19 @@ def coinbase_transactions(api_key, api_sec):
     transactions_df_bare = coinbase_aggregate_balances_per_day(trades_df_pairs.copy(), currencies, pair_cols)
     return transactions_df_bare, currencies
 
-def coinbase_balances(api_key, api_sec):
+def coinbase_balances(api_key, api_sec, key=''):
     """
     Usng the api info, pulls the account balances
 
     Args:
         api_key (str): api key for the call
         api_sec (str): api secret for the call
+        key (str): Fernet decryption key
 
     Returns:
         dict: dictionary of assets and the associated balances
     """
-    r = coinbase_accounts(api_key, api_sec)
+    r = coinbase_accounts(api_key, api_sec, key)
 
     account_balances = {}
     if r.status_code == 200: 
