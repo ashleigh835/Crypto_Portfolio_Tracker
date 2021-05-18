@@ -147,4 +147,4 @@ if __name__ == '__main__':
     sys.path.append('../')
     
     app.layout = layout
-    app.run_server(debug=True
+    app.run_server(debug=True)
