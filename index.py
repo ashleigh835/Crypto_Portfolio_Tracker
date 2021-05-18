@@ -1,7 +1,7 @@
 from app import app
 from apps import dashboard as db , settings as ls
 
-from lib.functions import generate_new_key
+from lib.functions import generate_new_key, load_settings
 
 import dash
 from dash.dependencies import Input, Output, State
@@ -31,7 +31,7 @@ This key must match the active key when you added any wallet addresses/APIs to y
 encrypt_modal = dbc.Modal(
     [   dbc.ModalHeader("Encryption Key"),
         dbc.FormGroup(
-            [   dbc.Input(type="text", id='encrypt-input'),
+            [   dbc.Input(type="text", id='encrypt-input', autoComplete=False),
                 dbc.FormFeedback('Must be a valid Fernet key', valid=False),
                 dbc.FormText(encrypt_text,color="secondary")
             ],
@@ -57,7 +57,9 @@ encrypt_modal = dbc.Modal(
 # Navigation Bar layout - conists of the icon, Title and dropdown menu
 navbar = dbc.Navbar(
     [   dcc.Store(id='encryption-key', storage_type='memory'),
-        dcc.Store(id='encryption-key-set', storage_type='memory', data=False),
+        dcc.Store(data=False, id='encryption-key-set', storage_type='memory',),
+        dcc.Store(data=load_settings(), id='memory', storage_type='session'), #, clear_data =True),
+        dcc.Store(data=False, id='settings_encryption_trigger', storage_type='memory'),
         html.Div(
             dbc.Row(
                 [   dbc.Col(html.Img(src=app.get_asset_url('cryptocurrency.png'), height='50px')),
@@ -178,9 +180,9 @@ def store_encryption(n1,n2,key_input,stored_key):
         elif trg == 'encrypt-submit':
             if key_input in [None,'']:
                 return stored_key,False,True
-            key = key_input   
+            key = key_input  
+            return key,True,False 
         else:            
-            app.logger.info(f'error! encryption triggered by: {trg}')
             raise PreventUpdate
         return key,True,False
 
@@ -189,19 +191,18 @@ def store_encryption(n1,n2,key_input,stored_key):
 
 @app.callback(
     Output("encrypt-modal", "is_open"),Output('encrypt-nav', 'children'),Output('encrypt-nav', 'outline'),Output('encrypt-nav', 'disabled'),
-    Input('encrypt-nav','n_clicks'),Input("encrypt-close", "n_clicks"),Input("add-Addresses-modal", "n_clicks"),Input("add-APIs-modal",'n_clicks'),Input('encryption-key-set','data'),
+    Input('encrypt-nav','n_clicks'),Input("encrypt-close", "n_clicks"),Input("settings_encryption_trigger",'data'),Input('encryption-key-set','data'),
     State('encrypt-nav', 'children'),State('encrypt-nav', 'outline'),State('encrypt-nav', 'disabled'),
     prevent_initial_call = True
 )
-def encryption_set(n1,n2,n3,n4,key_set,btn_text,outline,disabled):
+def encryption_set(n1,n2,encrypt_trig,key_set,btn_text,outline,disabled):
     """
     display/ hide the encryption modal and alter button style
 
     Args:
         n1 (n_clicks): number of times 'encrypt-nav' has been clicked 
         n2 (n_clicks): number of times 'encrypt-close' has been clicked (close within the encrypt modal)
-        n3 (n_clicks): number of times 'add-Addresses-modal' has been clicked
-        n4 (n_clicks): number of times 'encryption-key-set' has been clicked
+        encrypt_trig (bool): whether the encryption trigger has been set to True from the settings tab
         key_set (bool): whether the key has been set or not, stored in the dcc.Store method
         btn_text (str): string displayed for the encrypt-nav button
         outline (bool): whether the outline style is applied to the encrypt-nav button
@@ -218,23 +219,20 @@ def encryption_set(n1,n2,n3,n4,key_set,btn_text,outline,disabled):
     """
     ctx = dash.callback_context
     trg = ctx.triggered[0]['prop_id'].split('.')[0]
-    if (len(ctx.triggered)>0) & ([n1,n2,n3,n4] != [None]*4):
-        if (trg in ["encrypt-nav",'add-Addresses-modal','add-APIs-modal']) & (key_set == False):
+    app.logger.info([n1,n2,encrypt_trig,key_set])
+    if (len(ctx.triggered)>0) & ([n1,n2,encrypt_trig,key_set] != ([None]*2 + [False]*2)):
+        if (trg in ["encrypt-nav",'settings_encryption_trigger']) & (key_set == False):
             return True,btn_text,outline,disabled
         elif trg == "encrypt-close":
             return False,btn_text,outline,disabled
         elif trg == 'encryption-key-set':
             if key_set == True:
                 return False, 'Encrypted', True, True
+    elif trg == 'encryption-key-set':
+        if key_set == True:
+            return False, 'Encrypted', True, True
+            
     raise PreventUpdate
-
-@app.callback(Output('encrypt-test','children'),Input('encrypt-test','n_clicks'),State('encryption-key','data'),prevent_initial_call = True)
-def test(n1,dta):
-    ctx = dash.callback_context
-    if (len(ctx.triggered)>0) & (n1 is not None):
-        if dta not in ['',None]:
-            return dta
-    return 'test-key'
 
 if __name__ == '__main__':
     app.run_server(debug=True)

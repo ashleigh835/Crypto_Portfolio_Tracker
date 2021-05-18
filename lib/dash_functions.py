@@ -129,7 +129,7 @@ def generate_modal_form_group(lbl, formId, feedback, formTxt):
     return dbc.FormGroup(
         [   dbc.Label(lbl, html_for=formId, width = 2, style={'padding':'2%'}),
             dbc.Col(
-                [   dbc.Input(type="text", id=formId),
+                [   dbc.Input(type="text", id=formId, autoComplete=False),
                     dbc.FormFeedback(feedback, valid=False),
                     dbc.FormText(formTxt,color="secondary")
                 ],
@@ -239,4 +239,29 @@ def generate_wallet_cards(wallet_dict, key=''):
             ),
             html.Div(wallet_modals[wallet_type])
         ]
+    return cards
+
+from app import app
+def generate_balance_cards(wallet_dict, key=''):
+    """
+    generates a balance data from wallet
+
+    Args:
+        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        key (str, optional): decryption key
+
+    Returns:
+        TYPE: DESCRTIPTION
+    """        
+    wallet_type_titles = {'APIs' : "Exchange Wallets", 'Addresses': "Address Wallets"} 
+    cards = []
+    for wallet_type in wallet_dict:
+        # main_exchange_wallet_header = generate_wallet_card_header(wallet_type_titles[wallet_type],wallet_type)
+        # exchange_wallet_card_body = generate_wallet_content(wallet_dict[wallet_type],wallet_type, key)
+        for wallet_subtype in wallet_dict[wallet_type]:
+            cardbody = [dbc.CardHeader(wallet_subtype)]
+            for wallet in wallet_dict[wallet_type][wallet_subtype]:
+                app.logger.info(wallet)
+                cardbody += [dbc.CardBody(wallet['api_key'])]
+            cards += [dbc.Card(cardbody)]
     return cards

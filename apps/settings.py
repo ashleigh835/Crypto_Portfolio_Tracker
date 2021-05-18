@@ -1,6 +1,6 @@
 from app import app
 from lib.dash_functions import generate_wallet_cards
-from lib.functions import load_settings, add_entry_to_json, remove_entry_from_json, get_latest_index_from_json
+from lib.functions import load_settings, add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, encrypt
 
 import json
 from datetime import datetime
@@ -19,8 +19,7 @@ tab_Style = {
 }
 
 layout = html.Div(
-    [   dcc.Store(data=load_settings(), id='memory', storage_type='session'), #, clear_data =True),
-        dcc.Tabs(
+    [   dcc.Tabs(
             id='settings-tab', 
             value='Wallet', 
             children=[
@@ -53,13 +52,15 @@ def render_tab_content(tab):
     if tab == 'User':
         return user_content
 
-@app.callback(Output('wallet', 'children'),Input('memory', 'data'))
-def load_wallet_data(data):
+@app.callback(Output('wallet', 'children'),Input('memory', 'data'),Input('encryption-key','data'),State('encryption-key-set','data'))
+def load_wallet_data(data, stored_key, key_set ):
     """
     trigger when the stored data for id 'memory' changes and updates the children of the tab_content
 
     Args:
         data (dict): stored in the id 'memory'
+        stored_key (str): stored decryption key
+        key_set (bool): whether the key has been set or not, stored in the dcc.Store method
 
     Raises:
         PreventUpdate: doesn't update if data is empty
@@ -68,61 +69,52 @@ def load_wallet_data(data):
         list: list of html children containing cards of wallets
     """
     if data is not None:
-        app.logger.info(f'running load_wallet_data on {data.keys()}')
-        return generate_wallet_cards(data['Wallets'])
+        if key_set:
+            return generate_wallet_cards(data['Wallets'],stored_key.encode())
+        else:
+            return generate_wallet_cards(data['Wallets'],'')
     else:
         raise PreventUpdate
 
-@app.callback(Output("APIs-modal", "is_open"),Input("add-APIs-modal", "n_clicks"), Input("API-close", "n_clicks"),State('encryption-key-set','data'))
-def toggle_API_modal(n1,n2,key_set):
+@app.callback(
+    Output("APIs-modal", "is_open"),Output("Addresses-modal", "is_open"),Output("settings_encryption_trigger",'data'),
+    Input("add-APIs-modal", "n_clicks"), Input("API-close", "n_clicks"),Input("add-Addresses-modal", "n_clicks"), Input("Addresses-close", "n_clicks"),
+    State('encryption-key-set','data'), 
+    prevent_initial_call = True
+)
+def toggle_add_wallet_modal(n1,n2,n3,n4,key_set):
     """
     Show or hide the modal based on which button was clicked
 
     Args:
         n1 (n_clicks): number of times 'add-APIs-modal' has been clicked
         n2 (n_clicks): number of times 'API-close' has been clicked
+        n3 (n_clicks): number of times 'add-Addresses-modal' has been clicked
+        n4 (n_clicks): number of times 'Addresses-close' has been clicked
         key_set (bool): whether the key has been set or not, stored in the dcc.Store method
 
     Raises:
         PreventUpdate: doesn't update if the trigger didn't come from a click
 
     Returns:
-        bool: True or False on whether to show or hide the modal
+        bool: True or False on whether to show or hide the API modal
+        bool: True or False on whether to show or hide the Address modal
+        bool: True or False on whether to show or hide the encryption modal
     """
     ctx = dash.callback_context
-    if (len(ctx.triggered)>0) & ([n1,n2] != [None]*2):
-        if key_set == True:
-            trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+    if (len(ctx.triggered)>0) & ([n1,n2,n3,n4] != [None]*4):
+        trg = ctx.triggered[0]['prop_id'].split('.')[0]  
+        if trg in ["add-APIs-modal","API-close","add-Addresses-modal","Addresses-close"] and key_set == False:
+            return False, False, True
+        elif trg in ["add-APIs-modal","API-close","add-Addresses-modal","Addresses-close"] and key_set == True:
             if trg == "add-APIs-modal":
-                return True
+                return True, False, False
             elif trg == "API-close":
-                return False
-    raise PreventUpdate
-
-@app.callback(Output("Addresses-modal", "is_open"),Input("add-Addresses-modal", "n_clicks"), Input("Addresses-close", "n_clicks"),State('encryption-key-set','data'))
-def toggle_Addresses_modal(n1,n2,key_set):
-    """
-    Show or hide the modal based on which button was clicked
-
-    Args:
-        n1 (n_clicks): number of times 'add-Addresses-modal' has been clicked
-        n2 (n_clicks): number of times 'Addresses-close' has been clicked
-        key_set (bool): whether the key has been set or not, stored in the dcc.Store method
-
-    Raises:
-        PreventUpdate: doesn't update if the trigger didn't come from a click
-
-    Returns:
-        bool: True or False on whether to show or hide the modal
-    """
-    ctx = dash.callback_context
-    if (len(ctx.triggered)>0) & ([n1,n2] != [None]*2):
-        if key_set == True:
-            trg = ctx.triggered[0]['prop_id'].split('.')[0]  
-            if trg == "add-Addresses-modal":
-                return True
+                return False, False, False
+            elif trg == "add-Addresses-modal":
+                return False, True, False
             elif trg == "Addresses-close":
-                return False
+                return False, False, False
     raise PreventUpdate
 
 @app.callback( 
@@ -189,12 +181,13 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
 
             if bad_api_key == bad_api_sec == False:
                 max_index = get_latest_index_from_json('APIs')
-
+                if api_pass not in ['',None]:
+                    api_pass = encrypt(api_pass.encode('utf-8'),stored_key).decode()
                 exch = {
                     exchange : {
                         'id' : max_index,
-                        'api_key' : api_key,
-                        'api_sec' : api_sec,
+                        'api_key' : encrypt(api_key.encode('utf-8'),stored_key).decode(),
+                        'api_sec' : encrypt(api_sec.encode('utf-8'),stored_key).decode(),
                         'api_pass' : api_pass,
                         'time_added': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     }
@@ -214,7 +207,7 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
                 addr = {
                     asset : {
                         'id' : max_index,
-                        'address' : address,
+                        'address' : encrypt(address.encode('utf-8'),stored_key).decode(),
                         'time_added': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     }
                 }  
