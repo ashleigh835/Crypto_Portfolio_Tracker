@@ -3,11 +3,12 @@ from app import app
 from lib.dash_functions import generate_balance_table
 from lib.functions import balances_from_dict
 
+import pandas as pd
+import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-from dash.exceptions import PreventUpdate
 
 # exchange selection - hardcoded options for now
 exchange_dropdown = dcc.Dropdown(
@@ -20,9 +21,11 @@ exchange_dropdown = dcc.Dropdown(
     multi=False
 )
 
-# content style when the balances tab is selected - for now duplicate for the prices and transactions
 balances_content = html.Div(
-    html.Div(dbc.Spinner(color='secondary'), style={'position':'fixed','top':'20%','left':'50%'}), id='balances-info')
+    [   dcc.Store(id='balance-df', storage_type='session'),
+        html.Div(dbc.Spinner(color='secondary'), style={'position':'fixed','top':'20%','left':'50%'})
+    ], id='balances-info'
+)
 
 prices_content = [   
     dbc.Row(
@@ -84,37 +87,64 @@ def render_content(tab):
     elif tab == 'trans':
         return html.Div(transactions_content)
 
-@app.callback(Output('balances-info', 'children'),Input('memory', 'data'),Input('encryption-key','data'),State('encryption-key-set','data'))
-def load_balance_data(data, stored_key, key_set ):
+@app.callback(
+    Output('balance-df','data'),
+    Input('memory', 'data'),Input('encryption-key-set','data'),
+    State('encryption-key','data'),State('balance-df','data')
+)
+def load_balance_data(data, key_set, stored_key, balance_df):
     """
-    trigger when the stored data for id 'memory' changes and updates the children of the tab_content
+    updates the balance dataframe
 
     Args:
         data (dict): stored in the id 'memory'
         stored_key (str): stored decryption key
         key_set (bool): whether the key has been set or not, stored in the dcc.Store method
+        balance-df (pandas.DataFrame): Stored Dataframe with balances data from Wallets
 
     Raises:
         PreventUpdate: doesn't update if data is empty
 
     Returns:
-        list: list of html children containing cards of wallets
+        json: json panda dataframe object of the balance dataframe
     """
+    ctx = dash.callback_context
+    trg = ctx.triggered[0]['prop_id'].split('.')[0]  
     if data is not None:
         if key_set:
-            df = balances_from_dict(data['Wallets'],stored_key.encode())
-            df = df.reset_index().rename(columns={'index':''}).sort_values('Total', ascending=False)
+            if (balance_df is None) | (trg not in [None,'']):
+                df = balances_from_dict(data['Wallets'],stored_key.encode())
+                df = df.reset_index().rename(columns={'index':''}).sort_values('Total', ascending=False)
+                app.logger.info(f'balance loaded')
+                return df.to_json()
+    return balance_df
+
+@app.callback(Output('balances-info', 'children'),Input('balance-df','data'),State('encryption-key-set','data'))
+def render_balance_data(balance_df,key_set):
+    """
+    render the balance data from the stored json dataframe file
+
+    Args:
+        balance-df (pandas.DataFrame): Stored Dataframe with balances data from Wallets
+        key_set (bool): whether the key has been set or not, stored in the dcc.Store method
+
+    Returns:
+        html children: creates a dash table from the stored data
+    """
+    ctx = dash.callback_context
+    app.logger.info(f'rendering balance {ctx.triggered}')
+    if balance_df is not None:
+        if key_set:
+            df = pd.read_json(balance_df)
             return dbc.Table.from_dataframe(df, striped=True, bordered=False, hover=True)
             # return generate_balance_table(df)
             # return generate_wallet_cards(data['Wallets'],stored_key.encode())
         # else:
             # return generate_wallet_cards(data['Wallets'],'')
-    else:
-        raise PreventUpdate
 
 if __name__ == '__main__':
     import sys
     sys.path.append('../')
     
     app.layout = layout
-    app.run_server(debug=True)
+    app.run_server(debug=True

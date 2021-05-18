@@ -51,13 +51,13 @@ encrypt_modal = dbc.Modal(
     id="encrypt-modal",
     size="md",
     centered=True,
-    is_open=False,
+    is_open=True,
 )
 
 # Navigation Bar layout - conists of the icon, Title and dropdown menu
 navbar = dbc.Navbar(
-    [   dcc.Store(id='encryption-key', storage_type='memory'),
-        dcc.Store(data=False, id='encryption-key-set', storage_type='memory',),
+    [   dcc.Store(id='encryption-key', storage_type='session'),
+        dcc.Store(data=False, id='encryption-key-set', storage_type='session',),
         dcc.Store(data=settings_default(), id='memory', storage_type='local'), #, clear_data =True),
         dcc.Store(data=False, id='settings_encryption_trigger', storage_type='memory'),
         html.Div(
