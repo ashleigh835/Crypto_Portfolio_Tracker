@@ -1,6 +1,6 @@
 from app import app
 from lib.dash_functions import generate_wallet_cards
-from lib.functions import load_settings, add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, encrypt
+from lib.functions import add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, encrypt
 
 import json
 from datetime import datetime
@@ -46,7 +46,6 @@ def render_tab_content(tab):
     Returns:
         html: html content based on tab selected
     """    
-    app.logger.info(f'running render_tab_content on {tab}')
     if tab == 'Wallet':
         return wallet_content
     if tab == 'User':
@@ -136,10 +135,11 @@ def toggle_add_wallet_modal(n1,n2,n3,n4,key_set):
         State('wallet-address', 'value'),
         State('wallet-address','invalid'), 
         State('encryption-key','data'),
+        State('memory','data')
     ]
     , prevent_initial_call = True
 )
-def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, bad_api_key, bad_api_sec, asset, address, bad_address, stored_key):
+def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, bad_api_key, bad_api_sec, asset, address, bad_address, stored_key, app_settings_dict):
     """
     Add/remove a wallet to/from the json data file
 
@@ -193,16 +193,16 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
                     }
                 }
                 app.logger.info(f"adding entry {exch} to json")
-                add_entry_to_json('APIs', exch)
-                return bad_address, bad_api_key, bad_api_sec, load_settings()
+                app_settings_dict = add_entry_to_json('APIs', exch, app_settings_dict)
+                return bad_address, bad_api_key, bad_api_sec, app_settings_dict
 
-            return False, bad_api_key, bad_api_sec, None
+            return False, bad_api_key, bad_api_sec, app_settings_dict
         elif trg == 'add-addresses':
             bad_address = False
             if address in [None,'']:
-                return True, bad_api_key, bad_api_sec, None
+                return True, bad_api_key, bad_api_sec, app_settings_dict
             else:
-                max_index = get_latest_index_from_json('Addresses')
+                max_index = get_latest_index_from_json('Addresses', app_settings_dict)
 
                 addr = {
                     asset : {
@@ -212,13 +212,13 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
                     }
                 }  
                 app.logger.info(f"adding entry {addr} to json")
-                add_entry_to_json('Addresses', addr)
-                return False, bad_api_key, bad_api_sec, load_settings()  
+                app_settings_dict = add_entry_to_json('Addresses', addr, app_settings_dict)
+                return False, bad_api_key, bad_api_sec, app_settings_dict 
 
         else:
             trg_dta = json.loads(trg)
-            app.logger.info(remove_entry_from_json(trg_dta['index'],trg_dta['type'].split('-')[1]))
-            return bad_address, bad_api_key, bad_api_sec, load_settings()
+            app_settings_dict = remove_entry_from_json(trg_dta['index'],trg_dta['type'].split('-')[1], app_settings_dict)
+            return bad_address, bad_api_key, bad_api_sec, app_settings_dict
     else:
         raise PreventUpdate
 

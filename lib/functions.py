@@ -271,26 +271,6 @@ def locate_settings():
     app_settings = app_data_loc+os.sep+'app_data.json'
     return app_data_loc, app_settings
 
-def load_settings():
-    """
-    load the json data into memory from file
-    if the set directory for the data doesn't exist it will be created
-    if there's no settings file, a blank default will be created
-
-    Returns:
-        dict: contains wallet information
-    """
-    app_data_loc, app_settings = locate_settings()
-
-    if os.path.exists(app_data_loc) == False:
-        os.mkdir(app_data_loc)
-    if os.path.isfile(app_settings) == False:
-        app_settings_dict = settings_default()
-    else:
-        with open(app_settings) as json_file:
-            app_settings_dict = json.load(json_file)
-    return app_settings_dict
-
 def settings_default():
     """
     default json data file structure
@@ -305,36 +285,24 @@ def settings_default():
     }
 }
 
-def clean_json(wallet_dict):
+def clean_json(app_settings_dict):
     """
     - remove empty subtype dictionaries
 
     Args:
-        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        app_settings_dict (dict): dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
 
     Returns:
-        wallet_dict (dict): cleaned dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        app_settings_dict (dict): cleaned dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
     """
-    for wallet_type in wallet_dict['Wallets'].keys():
+    for wallet_type in app_settings_dict['Wallets'].keys():
         delete_ls = []
-        for wallet_sub_type in wallet_dict['Wallets'][wallet_type].keys():
-            if wallet_dict['Wallets'][wallet_type][wallet_sub_type] == []:
+        for wallet_sub_type in app_settings_dict['Wallets'][wallet_type].keys():
+            if app_settings_dict['Wallets'][wallet_type][wallet_sub_type] == []:
                 delete_ls+=[wallet_sub_type]     
         for wallet_sub_type in delete_ls:
-            wallet_dict['Wallets'][wallet_type].pop(wallet_sub_type) 
-    return wallet_dict
-
-def update_settings(wallet_dict):
-    """
-    Overwrite the json data file with the passed dictionary
-
-    Args:
-        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
-    """
-    app_settings_file = locate_settings()[1]
-    wallet_dict = clean_json(wallet_dict)
-    with open(app_settings_file, 'w') as outfile:
-        json.dump(wallet_dict, outfile, indent=4, sort_keys=True)
+            app_settings_dict['Wallets'][wallet_type].pop(wallet_sub_type) 
+    return app_settings_dict
 
 # wallet_dict (dict) = {
 #     wallet_type : {
@@ -344,16 +312,20 @@ def update_settings(wallet_dict):
 # wallet_type = API/Address Wallet
 # wallet_subtype = API Exchange/Asset Type
 # wallets = API credentials/Wallet Address
-def add_entry_to_json(wallet_type, wallet_subtypes):
+# app_settings_dict = {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
+
+def add_entry_to_json(wallet_type, wallet_subtypes, app_settings_dict):
     """
     add a wallet to the respective wallet_type + wallet_subtype - overwrites the json data file
 
     Args:
         wallet_type (dict): Addresses/APIs - Whether the list of contains Addresses or APIs respectively
         wallet_subtypes (dict): dictionary of {wallet_subtype:[list of wallets]}
+        app_settings_dict (dict): dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
+    
+    Returns:
+        dictionary: clean updated dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
     """
-    app_settings_dict=load_settings()
-
     for wst in wallet_subtypes.keys():
         if wst in app_settings_dict['Wallets'][wallet_type].keys():
             if app_settings_dict['Wallets'][wallet_type][wst] != []:
@@ -362,40 +334,45 @@ def add_entry_to_json(wallet_type, wallet_subtypes):
                 app_settings_dict['Wallets'][wallet_type][wst] = [wallet_subtypes[wst]]
         else:
             app_settings_dict['Wallets'][wallet_type][wst] = [wallet_subtypes[wst]]
-    update_settings(app_settings_dict)
+
+    return clean_json(app_settings_dict)
 
 
-def remove_entry_from_json(index,wallet_type):
+def remove_entry_from_json(index,wallet_type,app_settings_dict):
     """
     remove a wallet by index from the respective wallet_type + wallet_subtype - overwrites the json data file
 
     Args:
         index (int): the index (represented as id within the wallet dict) of the wallet
         wallet_type (str): Addresses/APIs - Whether the wallet contains an Address or API
+        app_settings_dict (dict): dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
+    
+    Returns:
+        dictionary: clean updated dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
     """
-    app_settings_dict=load_settings()
     wallet_subtypes = app_settings_dict['Wallets'][wallet_type]
     for wst in wallet_subtypes.keys():
         for wallet in wallet_subtypes[wst]:
             if wallet['id'] == index:
                 app_settings_dict['Wallets'][wallet_type][wst].remove(wallet)
-    update_settings(app_settings_dict)
+                
+    return clean_json(app_settings_dict)
 
-def get_latest_index_from_json(wallet_type):
+def get_latest_index_from_json(wallet_type,app_settings_dict):
     """
     provide an unused index for the given wallet_type
     indexes are not unique accross wallet_types
 
     Args:
         wallet_type (str): Addresses/APIs
+        app_settings_dict (dict): dictionary of {Wallets: {wallet_type: {wallet_subtype:[list of wallets]}}}
 
     Returns:
         int: unique integer which can be used as an index within the given wallet_type
     """
-    app_settings_dict=load_settings()
     max_index =[-1]
     for wallet_subtype in app_settings_dict['Wallets'][wallet_type].keys():
-        max_index += [ wallet['id'] for wallet in load_settings()['Wallets'][wallet_type][wallet_subtype] ]
+        max_index += [ wallet['id'] for wallet in app_settings_dict['Wallets'][wallet_type][wallet_subtype] ]
     return max(max_index)+1
 
 def mask_str(str):

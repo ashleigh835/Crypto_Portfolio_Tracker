@@ -1,7 +1,7 @@
 from app import app
 from apps import dashboard as db , settings as ls
 
-from lib.functions import generate_new_key, load_settings
+from lib.functions import generate_new_key, settings_default
 
 import dash
 from dash.dependencies import Input, Output, State
@@ -58,7 +58,7 @@ encrypt_modal = dbc.Modal(
 navbar = dbc.Navbar(
     [   dcc.Store(id='encryption-key', storage_type='memory'),
         dcc.Store(data=False, id='encryption-key-set', storage_type='memory',),
-        dcc.Store(data=load_settings(), id='memory', storage_type='session'), #, clear_data =True),
+        dcc.Store(data=settings_default(), id='memory', storage_type='local'), #, clear_data =True),
         dcc.Store(data=False, id='settings_encryption_trigger', storage_type='memory'),
         html.Div(
             dbc.Row(
