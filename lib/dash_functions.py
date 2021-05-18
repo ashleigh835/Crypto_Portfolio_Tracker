@@ -241,7 +241,6 @@ def generate_wallet_cards(wallet_dict, key=''):
         ]
     return cards
 
-from app import app
 def generate_balance_cards(wallet_dict, key=''):
     """
     generates a balance data from wallet
@@ -253,7 +252,6 @@ def generate_balance_cards(wallet_dict, key=''):
     Returns:
         TYPE: DESCRTIPTION
     """        
-    wallet_type_titles = {'APIs' : "Exchange Wallets", 'Addresses': "Address Wallets"} 
     cards = []
     for wallet_type in wallet_dict:
         # main_exchange_wallet_header = generate_wallet_card_header(wallet_type_titles[wallet_type],wallet_type)
@@ -261,7 +259,9 @@ def generate_balance_cards(wallet_dict, key=''):
         for wallet_subtype in wallet_dict[wallet_type]:
             cardbody = [dbc.CardHeader(wallet_subtype)]
             for wallet in wallet_dict[wallet_type][wallet_subtype]:
-                app.logger.info(wallet)
-                cardbody += [dbc.CardBody(wallet['api_key'])]
+                if wallet_type =='APIs':
+                    cardbody += [dbc.CardBody(wallet['api_key'])]
+                elif wallet_type == 'Addresses':
+                    cardbody += [dbc.CardBody(wallet['address'])]
             cards += [dbc.Card(cardbody)]
     return cards
