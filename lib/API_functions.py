@@ -203,9 +203,20 @@ def fetch_daily_price_pairs(pairs, exchange, dta=[], daily_prices_df = pd.DataFr
         list: list of pairs which have been successfully pulled (appends)
     """    
     for pair in pairs:
+        temp_pair = pair.replace('.S','')
+        if temp_pair.startswith('ETH2'):
+            temp_pair = temp_pair.replace('ETH2','ETH')
+
+        if (pair not in dta) and (temp_pair in dta) and (pair !=temp_pair):
+            tmpdf = daily_prices_df[[temp_pair]].copy()  
+            tmpdf = tmpdf.rename(columns={temp_pair:pair})
+            daily_prices_df = pd.concat([daily_prices_df,tmpdf], axis = 1, sort=True, join='outer')
+            dta += [pair]
+            
         if pair not in dta:
-            print(f'new pair found! Pulling data for {pair}')
-            tmp_dct = fetch_daily_price_individual(pair, exchange) 
+            print(f'new pair found! Pulling data for {pair} ({temp_pair})')
+                
+            tmp_dct = fetch_daily_price_individual(temp_pair, exchange) 
             
             if tmp_dct.empty == False:
                 tmpdf = tmp_dct.copy()[['date','high','low']]  

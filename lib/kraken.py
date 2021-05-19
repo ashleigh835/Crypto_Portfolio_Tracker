@@ -103,8 +103,10 @@ def kraken_balances(api_key, api_sec, key=''):
                         key)
 
     account_balances = {}
-    if resp.json()['result']:
+    if 'result' in resp.json().keys():
         account_balances = resp.json()['result']
+    else:
+        print(f'bad response: {resp.json()}')
 
     return account_balances
 

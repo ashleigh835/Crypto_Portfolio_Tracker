@@ -241,42 +241,41 @@ def generate_wallet_cards(wallet_dict, key=''):
         ]
     return cards
 
-def generate_balance_table(df):
+def generate_balance_table(df, prices_df):
     """
-    generates a table from balance dataframe
+    generates a table from balance dataframe including price data
 
     Args:
         df (pandas.DataFrame): DataFrame where index represents the asset with a column for each balance source and a Total column
+        prices_df (pandas.DataFrame): DataFrame with daily prices per pairs
 
     Returns:
         Table (dash_bootsrap_components): HTML table with data from provided table
-    """        
-    # cards = []
-    # ls=[]
-    # for asset, balances in df.iterrows():
-    #     cols_ls = []
-    #     for column in df.columns:
-    #         cols_ls+=[dbc.Col(html.Span(str(balances[column])))]
-
-    #     wallet_str = [ dbc.Row( [dbc.Col(asset)]+ cols_ls) ]
-    #     ls+=[dbc.ListGroupItem(wallet_str)]  
-    
-    # cols_ls = []
-    # for column in df.columns:
-    #     cols_ls+=[dbc.Col(html.Span(column))]
-    # wallet_str = [ dbc.Row( [dbc.Col('Asset')]+ cols_ls) ]
-
-    # cardbody = [dbc.CardHeader(wallet_str),dbc.CardBody(dbc.ListGroup(ls,flush=True))]
-    # cards += [dbc.Card(cardbody)]
-    # return cards
-
-    return dbc.Table([
+    """     
+    wallet_str = []  
+    for asset, balances in df.iterrows():
+        cols_ls = [html.Td(asset)]
+        for column in df.columns:
+            if balances[column] not in ['',0]:   
+                if asset == 'USD':
+                    cols_ls+=[html.Td(html.Span(f"${float(balances[column]):,.2f}", style={'color':'green', 'font-weight': 'bold'}))]
+                else:                    
+                    cols_ls+=[
+                        html.Td([
+                            f"{float(balances[column]):,.5f}",
+                            html.Span(
+                                f" ${float(balances[column]) * prices_df[f'{asset}/USD'].tail(1).iloc[0]:,.2f}", style={'color':'green', 'font-weight': 'bold'}
+                            )
+                        ])
+                    ]
+            else:
+                cols_ls+=[html.Td('')]
+            
+        wallet_str += [ html.Tr(cols_ls) ] 
+    table = [
         html.Thead(
-            html.Tr([html.Th(col) for col in df.columns])
+            html.Tr([html.Th('')]+[html.Th(col) for col in df.columns])
         ),
-        html.Tbody([
-            html.Tr([
-                html.Td(df.iloc[i][col]) for col in df.columns
-            ]) for i in range(min(len(df), 10))
-        ])
-    ], striped=True, bordered=False, hover=True)
+        html.Tbody(wallet_str)
+    ]
+    return dbc.Table(table, striped=True, bordered=False, hover=True, style={'text-align':'center'})
