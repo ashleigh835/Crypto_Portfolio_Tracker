@@ -51,6 +51,18 @@ class Coinbase(Exchange):
             })
             return request 
             
+    def request(self, uri_path):
+        """
+        API request to the api_url already within the class (self.api_url)
+
+        Args:
+            uri_path (str): sub path for the api call
+
+        Returns:
+            response: json response from the requests package (API)
+        """
+        return requests.get(f"{self.api_url_pro}{uri_path}")
+
     def auth_request(self, uri_path, data):
         """
         Submit an authenticated request to the API server
@@ -165,12 +177,12 @@ class Coinbase(Exchange):
         """
         resp = self.request(f"/products/{symbol.replace('/','-')}/candles?granularity=86400")
         if resp.status_code == 200: 
-            if 'data' in resp.json().keys():
+            if len(resp.json())>0:
                 return resp.json()
-            elif 'error' in resp.json().keys():
-                for err in resp.json()['error']:
-                    print(f"error: {err}")
-        else: print(f"bad response: {resp.status_code} from API")   
+        else: 
+            print(f"bad response: {resp.status_code} from API")
+            if 'errors' in resp.json().keys():
+                for err in resp.json()['errors']: print(f"error: {err}") 
     
     def getHistoricalPricesDataFrame(self,symbol):
         """
