@@ -174,11 +174,8 @@ class Bittrex(Exchange):
             # resp = self.request(f"/markets/{symbol}/candles/DAY_1/historical/{year}")
             resp = self.request(f"/markets/{symbol}/candles/DAY_1/recent")
             if resp.status_code == 200: 
-                if 'result' in resp.json().keys():
+                if len(resp.json())>0:
                     return resp.json()
-                elif 'error' in resp.json().keys():
-                    for err in resp.json()['error']:
-                        print(f"error: {err}")
             else: print(f"bad response: {resp.status_code} from API")   
         else:
             print(f"symbol {symbol} not a valid symbol for this exchange")
