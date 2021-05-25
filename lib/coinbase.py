@@ -78,7 +78,7 @@ class Coinbase(Exchange):
         if (refresh == True) or ('accounts' not in vars(self)):
             resp = self.auth_request('/accounts',{'limit' : 100,'order' : 'desc'})
             if resp.status_code == 200: 
-                if 'result' in resp.json().keys():
+                if 'data' in resp.json().keys():
                     self.accounts = resp.json()
                     return self.accounts
                 elif 'error' in resp.json().keys():
@@ -258,6 +258,8 @@ class Coinbase(Exchange):
             pandas.DataFrame: formatted dataframe of the handled resp
         """
         df = pd.DataFrame()
+        if resp is None:
+            print(f"No result to Parse!")
         if 'data' not in resp.keys():
             print(f"No result! Error: {resp['error']}")
             return None
@@ -319,7 +321,7 @@ class Coinbase(Exchange):
         """        
         resp = self.auth_request(f'/accounts/{account}/transactions', {'limit' : '100','order' : 'desc'})
         if resp.status_code == 200: 
-            if 'result' in resp.json().keys():
+            if 'data' in resp.json().keys():
                 return resp.json()
             elif 'error' in resp.json().keys():
                 for err in resp.json()['error']:
@@ -339,7 +341,7 @@ class Coinbase(Exchange):
         Returns:
             pandas.DataFrame: response from the API, loaded into the self.transactions variable
         """   
-        if (refresh == True) or ('/transactions' not in vars(self)):
+        if (refresh == True) or ('transactions' not in vars(self)):
             df=pd.DataFrame()
             accounts = self.getAccounts(refresh)
             if accounts is not None:

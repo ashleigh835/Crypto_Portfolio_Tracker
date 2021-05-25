@@ -75,12 +75,9 @@ class Bittrex(Exchange):
         if (refresh == True) or ('balances' not in vars(self)):
             resp = self.auth_request('/balances')
             if resp.status_code == 200: 
-                if 'result' in resp.json().keys():
+                if len(resp.json())>0:
                     self.balances = resp.json()
                     return self.balances
-                elif 'error' in resp.json().keys():
-                    for err in resp.json()['error']:
-                        print(f"error: {err}")
             else: print(f"bad response: {resp.status_code} from API")
         else: return self.balances
         
@@ -118,12 +115,9 @@ class Bittrex(Exchange):
         if (refresh == True) or ('validSymbols' not in vars(self)):
             resp = self.request('/markets/tickers')
             if resp.status_code == 200: 
-                if 'result' in resp.json().keys():
+                if len(resp.json())>0:
                     self.validSymbols = resp.json()
                     return self.validSymbols
-                elif 'error' in resp.json().keys():
-                    for err in resp.json()['error']:
-                        print(f"error: {err}")
             else: print(f"bad response: {resp.status_code} from API")
         else: return self.validSymbols
         
