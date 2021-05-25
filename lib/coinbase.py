@@ -165,7 +165,7 @@ class Coinbase(Exchange):
         """
         resp = self.request(f"/products/{symbol.replace('/','-')}/candles?granularity=86400")
         if resp.status_code == 200: 
-            if 'result' in resp.json().keys():
+            if 'data' in resp.json().keys():
                 return resp.json()
             elif 'error' in resp.json().keys():
                 for err in resp.json()['error']:
