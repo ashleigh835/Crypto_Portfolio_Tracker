@@ -1,6 +1,6 @@
 from lib.functions import decrypt
+from config import infura_key
 
-import os
 import time
 import requests
 import pandas as pd
@@ -351,3 +351,40 @@ def coinbase_parse_api_results(resp):
         df = pd.concat([df, tmp_df], axis = 0, sort=False)
                 
     return df
+
+def blockchain_address_api(addresses):
+    """
+    uses the blockchain.info api to query the current balance for bitcoin addresses
+
+    Args:
+        addresses ([str]): list of bitcoin addresses
+
+    Returns:
+        dict: json result from API
+    """
+    address_str =''
+    for address in addresses:
+        address_str = '|'.join(addresses)
+    url = f'https://blockchain.info/balance?active={address_str}'
+    response = requests.get(url)
+    if response.status_code == 200: 
+        return json.loads(response.text)      
+    else:
+        print(f"Did not receieve OK response from {address}. Received: {response.status_code}")
+
+def infura_eth_address(addresses, infura_key=infura_key):
+    """
+    uses the web3 package and infura provider to query the current balance for ethereum addresses
+
+    Args:
+        addresses ([str]): list of ethereum addresses
+
+    Returns:
+        dict: json result from API
+    """
+    from web3 import Web3
+    w3 = Web3(Web3.HTTPProvider(f'https://mainnet.infura.io/v3/{infura_key}'))
+    address_dict = {}
+    for address in addresses:
+        address_dict[address] = {'final_balance' : w3.fromWei(w3.eth.get_balance(address),'ether')}
+    return address_dict

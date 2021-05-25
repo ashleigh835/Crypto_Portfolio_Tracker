@@ -2,7 +2,8 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 
-from lib.functions import mask_str, decrypt
+from lib.functions import mask_str, decrypt, add_columns_by_index
+from config import stable_coin_alts, fiat_currencies
 
 def generate_individual_wallet_listgroup(wallets,wallet_type,key=''):
     """
@@ -176,6 +177,7 @@ def generate_wallet_cards(wallet_dict, key=''):
         options=[
             {'label': 'Kraken', 'value': 'Kraken'},
             {'label': 'Coinbase', 'value': 'Coinbase'},
+            {'label': 'Bittrex', 'value': 'Bittrex'},
         ],
         multi=False,
         value='Kraken'
@@ -184,10 +186,8 @@ def generate_wallet_cards(wallet_dict, key=''):
     asset_dropdown = dcc.Dropdown(
         id = 'asset-dd',
         options=[
-            {'label': 'Doge', 'value': 'DOGE'},
             {'label': 'Bitcoin', 'value': 'BTC'},
-            {'label': 'Monero', 'value': 'XMR'},
-            {'label': 'Cardano', 'value': 'ADA'},
+            {'label': 'Ethereum', 'value': 'ETH'},
         ],
         multi=False,
         value='BTC'
@@ -241,41 +241,97 @@ def generate_wallet_cards(wallet_dict, key=''):
         ]
     return cards
 
-def generate_balance_table(df, prices_df):
+def generate_balance_table(balance_df, prices_df, native_asset='USD', group_addresses=False, stable_coin_alts=stable_coin_alts):
     """
     generates a table from balance dataframe including price data
 
     Args:
-        df (pandas.DataFrame): DataFrame where index represents the asset with a column for each balance source and a Total column
+        balance_df (pandas.DataFrame): DataFrame where index represents the asset with a column for each balance source and a Total column
         prices_df (pandas.DataFrame): DataFrame with daily prices per pairs
+        native (str, optional): Asset ticker for the native currency used in the right side of the symbol. Defaults to 'USD'.
+        group_addresses (bool, optional): Whether or not to group similar wallet addresses (e.g. BTC_0, BTC_1 combined into BTC)
+        stable_coin_alts (dict, optional): an alternative asset mapping to the given native, e.g. {'USD': ['USDT','DAI']}. Defaults to stable_coin_alts from config.py.
 
     Returns:
         Table (dash_bootsrap_components): HTML table with data from provided table
-    """     
+    """    
+    import pandas as pd
+    # prices_df = prices_df.dropna()
+    day_prices_df = prices_df.tail(1).iloc[0]
+
+    for asset in (stable_coin_alts[native_asset]+[native_asset]):
+        day_prices_df.index = day_prices_df.index.str.replace(f'/{asset}','')
+    day_prices_df.name = 'Price'
+    balances_df = pd.concat([balance_df,day_prices_df],axis=1,sort=True)
+    
+    for fiat in balances_df[balances_df.index.isin(fiat_currencies)].index.values:
+        balances_df.at[fiat,'Price'] = 1
+
+    # Remove anything with total = 0
+    for index in balances_df[(balances_df.Total.isna()) | (balances_df.Total < 0.01)].index.values:
+        balances_df = balances_df.drop(index)
+
+    # if we are grouping, combine anything with a suffix
+    if group_addresses:
+        for wallet_subtype in balances_df.columns[balances_df.columns.str.endswith('_0')]:
+            # Get the base name without the suffix
+            wallet_subtype_short = wallet_subtype.replace('_0','')
+            wallet_subtype_columns = balances_df.columns[balances_df.columns.str.startswith(wallet_subtype_short)]
+            remaining_columns = balances_df.columns[~balances_df.columns.str.startswith(wallet_subtype_short)]
+            
+            # Add the suffixed column into a new column with the same name, no suffix
+            grouped_asset_df = add_columns_by_index(balances_df[wallet_subtype_columns].copy(),wallet_subtype_short)
+            # Find the index of the initial suffixed column
+            insert_loc = balances_df.columns.get_loc(wallet_subtype)
+            # Insert the total non-suffixed column into that location of the column list
+            new_cols_list = remaining_columns.insert(insert_loc,wallet_subtype_short)
+            
+            # append the total non-suffixed column to our dataframe with our adjust column order
+            balances_df = pd.concat([balances_df,grouped_asset_df[[wallet_subtype_short]].copy()],axis=1,sort=True)[new_cols_list]
+
+
+    display_cols = balances_df.columns[~balances_df.columns.isin(['Price'])]
+    balances_df[f'Total$']=0
+    for column in display_cols:
+        if column != 'Total':
+            balances_df[column] = balances_df[column].fillna(0).astype('float')
+            balances_df[f'{column}$'] = balances_df[column] * balances_df.Price
+            balances_df[f'Total$']+=balances_df[f'{column}$']
+    balances_df.loc["Total"] = balances_df.sum()
+    
     wallet_str = []  
-    for asset, balances in df.iterrows():
-        cols_ls = [html.Td(asset)]
-        for column in df.columns:
+    for asset, balances in balances_df.iterrows():
+        if asset == 'Total':
+            cols_ls = [html.Td(asset, style={'color':'green', 'font-weight': 'bold'})]
+        else:
+            if pd.isnull(balances['Price']): 
+                cols_ls = [html.Td([asset])]
+            else: 
+                if float(balances['Price'])>1000: dp = '.0'
+                elif float(balances['Price'])<0.01: dp = '.4'
+                elif float(balances['Price'])<0.1: dp = '.3'
+                else: dp='.2'                 
+                cols_ls = [html.Td([asset,html.Span(f" ${float(balances['Price']):,{dp}f}", style={'color':'DeepSkyBlue'})])]
+        for column in display_cols:
             if balances[column] not in ['',0]:   
-                if asset == 'USD':
-                    cols_ls+=[html.Td(html.Span(f"${float(balances[column]):,.2f}", style={'color':'green', 'font-weight': 'bold'}))]
+                if asset in ['Total']:
+                    cols_ls+=[html.Td(f"${float(balances[f'{column}$']):,.2f}", style={'color':'green', 'font-weight': 'bold'})]
+                elif asset in ['USD']:
+                    cols_ls+=[html.Td(f"${float(balances[f'{column}$']):,.2f}", style={'color':'DarkSlateGrey','font-weight': 'bold'})]
+                elif pd.isnull(balances[f'{column}$']):
+                    cols_ls+=[html.Td(f"{float(balances[column]):,.5f}")]
                 else:                    
                     cols_ls+=[
                         html.Td([
                             f"{float(balances[column]):,.5f}",
-                            html.Span(
-                                f" ${float(balances[column]) * prices_df[f'{asset}/USD'].tail(1).iloc[0]:,.2f}", style={'color':'green', 'font-weight': 'bold'}
-                            )
+                            html.Span(f" ${float(balances[f'{column}$']):,.2f}", style={'color':'DarkSlateGrey','font-weight': 'bold'}),                            
                         ])
                     ]
             else:
                 cols_ls+=[html.Td('')]
-            
         wallet_str += [ html.Tr(cols_ls) ] 
-    table = [
-        html.Thead(
-            html.Tr([html.Th('')]+[html.Th(col) for col in df.columns])
-        ),
-        html.Tbody(wallet_str)
-    ]
-    return dbc.Table(table, striped=True, bordered=False, hover=True, style={'text-align':'center'})
+    return dbc.Table(
+        [   html.Thead(html.Tr([html.Th('')]+[html.Th(col) for col in display_cols])),
+            html.Tbody(wallet_str)
+        ], striped=True, bordered=False, hover=True, style={'text-align':'left'}
+    )

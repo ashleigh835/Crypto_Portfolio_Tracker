@@ -1,12 +1,52 @@
-from config import accepted_currencies, remap_assets, fiat_currencies
+from config import remap_assets, fiat_currencies
 
 import os
-import json
 import pandas as pd
 import numpy as np
 from cryptography.fernet import Fernet
 
-def split_pair(pair, accepted_currencies=accepted_currencies):
+def asset_variant(asset):
+    """
+    generate a list of accepted asset variants (e.g. on Kraken, BTC can be listed as XXBTC etc. and we want to treat it as BTC)
+
+    Args:
+        asset (str): trading asset 
+
+    Returns:
+        list: list of accepted asset variants
+    """
+    return [asset,'X'+asset,'XX'+asset,'Z'+asset]
+                          
+def rename_asset(old_asset, accepted_currencies, remap_assets=remap_assets): 
+    """
+    rename an asset based on asset variants or renaming rules in dictionary provided
+
+    Args:
+        old_asset (str): asset which should be renamed
+        accepted_currencies (list): list of currencies that the asset can be renamed to 
+        remap_assets (dict, optional): dictionary of assets with renaming rules e.g. {'XBT' : 'BTC'}. Defaults to remap_assets from config.py.
+
+    Returns:
+        str: renamed asset
+    """    
+    for asset in accepted_currencies:
+        # Rename the given asset if it appears in the remapping dict
+        for remap_asset in remap_assets.keys():
+            if old_asset in asset_variant(remap_asset):
+                old_asset = remap_assets[remap_asset]            
+
+        # Rename the current asset from the loop if it appears in the remapping dict
+        tmp_asset = asset
+        if asset in remap_assets.keys():
+            tmp_asset=remap_assets[asset]
+
+        # If it appears with any of the base string prefixes, accept the original version
+        if old_asset in asset_variant(tmp_asset):
+            return tmp_asset
+                                            
+    return old_asset
+    
+def split_symbol(symbol, accepted_currencies):  
     """
     Take a pair and split individually based on the list of accepted currencies.
     If one asset is provided, that asset will return in a duplicated array 
@@ -20,55 +60,54 @@ def split_pair(pair, accepted_currencies=accepted_currencies):
     Returns:
         list: list of size 2 containing each asset which the pair was split into
     """    
-    default_pair = {'found':False,
+    default_symbol = {'found':False,
              'currency_short':'',
              'currency_long':''}
-    return_pair = [default_pair.copy(), default_pair.copy()]
-    
-    for curr in accepted_currencies:
-        for curr2 in [curr,'X'+curr,'XX'+curr,'Z'+curr]:
-            if (pair == curr2) & (return_pair[0]['found'] == return_pair[1]['found'] == False):
-                return_pair[0]['found'] = True
-                return_pair[0]['currency_short']=curr
-                return_pair[0]['currency_long']=curr2
-                return_pair[1]['found'] = True
-                return_pair[1]['currency_short']=curr
-                return_pair[1]['currency_long']=curr2
-            if (pair.startswith(curr2)) & (return_pair[0]['found'] == False):
-                return_pair[0]['found'] = True
-                return_pair[0]['currency_short']=curr
-                return_pair[0]['currency_long']=curr2
-            if (pair.endswith(curr2)) & (return_pair[1]['found'] == False):
-                return_pair[1]['found'] = True
-                return_pair[1]['currency_short']=curr
-                return_pair[1]['currency_long']=curr2
-                
-    if not (return_pair[0]['found'] == return_pair[1]['found'] == True):
-        if return_pair[0]['found'] == return_pair[1]['found']:
-            if pair != str(np.nan):
-                print(f'neither pair from {pair} were supported.')
-        else:
-            for i in return_pair:
-                if i['found']:
-                    print(f"Currency: {pair.replace(i['currency_long'],'')} not supported, consider adding to supported list")
-    
-    return [return_pair[0]['currency_short'],return_pair[1]['currency_short']]
+    return_symbol = [default_symbol.copy(), default_symbol.copy()]
 
-def parse_pairs_from_series(df, series_name):
+    for asset in accepted_currencies:
+        for asset_v in asset_variant(asset):
+            if (symbol == asset_v) & (return_symbol[0]['found'] == return_symbol[1]['found'] == False):
+                return_symbol[0]['found'] = True
+                return_symbol[0]['currency_short']=asset
+                return_symbol[0]['currency_long']=asset_v
+                return_symbol[1]['found'] = True
+                return_symbol[1]['currency_short']=asset
+                return_symbol[1]['currency_long']=asset_v
+            if (symbol.startswith(asset_v)) & (return_symbol[0]['found'] == False):
+                return_symbol[0]['found'] = True
+                return_symbol[0]['currency_short']=asset
+                return_symbol[0]['currency_long']=asset_v
+            if (symbol.endswith(asset_v)) & (return_symbol[1]['found'] == False):
+                return_symbol[1]['found'] = True
+                return_symbol[1]['currency_short']=asset
+                return_symbol[1]['currency_long']=asset_v
+
+    if not (return_symbol[0]['found'] == return_symbol[1]['found'] == True):
+        if return_symbol[0]['found'] == return_symbol[1]['found']:
+            if symbol != str(np.nan):
+                print(f'neither asset from {symbol} were supported.')
+        else:
+            for symbol_i in return_symbol:
+                if symbol_i['found']: print(f"Currency: {symbol.replace(symbol_i['currency_long'],'')} not supported, consider adding to supported list")
+
+    return [return_symbol[0]['currency_short'],return_symbol[1]['currency_short']]
+
+def parse_pairs_from_series(df, series_name, accepted_currencies):
     """
     Adjust a dataframe - take the series and split into two columns
 
     Args:
         df (pandas.DataFrame): Pandas Dataframe containing the series which should be processed
         series_name (str): string representing a pandas.Series which should be processed
+        accepted_currencies (list): list of currencies which the pair can be split into.
 
     Returns:
         pandas.DataFrame: adjusted dataframe and the new column names
         list: list of the series names which the series_name was parsed into
     """        
     pair_cols = ['pair_1','pair_2']
-    
-    pair_df = df[series_name].astype('str').apply(split_pair).apply(pd.Series)
+    pair_df = df[series_name].astype('str').apply(split_symbol, args=[accepted_currencies]).apply(pd.Series)
     pair_df.columns = pair_cols
     df = df.merge(pair_df,left_index=True,right_index=True)
     
@@ -401,42 +440,77 @@ def balances_from_dict(wallet_dict, key=''):
     Returns:
         pandas.DataFrame: DataFrame with indexed assets and a column for each source with the corresponding balances as values
     """
-    from lib.kraken import kraken_balances
-    from lib.coinbase import coinbase_balances  
-    balance_functions = {'kraken':kraken_balances,'coinbase':coinbase_balances} 
-    df = pd.DataFrame()
+    from lib.kraken import Kraken
+    from lib.coinbase import Coinbase  
+    from lib.bittrex import Bittrex
+    from lib.API_functions import blockchain_address_api, infura_eth_address
+    balance_functions = {'kraken':Kraken,'coinbase':Coinbase,'bittrex':Bittrex,'BTC':blockchain_address_api,'ETH':infura_eth_address}
+    api_df = pd.DataFrame()
+    address_df = pd.DataFrame()
+    full_df = pd.DataFrame()
+    i={}
     for wallet_type in wallet_dict:
         for wallet_subtype in wallet_dict[wallet_type]:
-            i=0
-            for wallet in wallet_dict[wallet_type][wallet_subtype]:
-                if wallet_type =='APIs':
-                    if wallet_subtype.lower() in ['kraken','coinbase']:
-                        exchage_function = balance_functions[wallet_subtype.lower()]
-                        balances = exchage_function(wallet['api_key'].encode(), wallet['api_sec'].encode(), key)
-                        for bal in balances:
-                            if len(wallet_dict[wallet_type][wallet_subtype])>1:
-                                index_str = f"{wallet_subtype}_{i}"
-                            else:
-                                index_str = wallet_subtype
-                            tmp_df = pd.DataFrame({index_str : balances[bal]},index=[split_pair(bal)[0]])
-                            tmp_df = remap_series(tmp_df.reset_index(), 'index', remap_assets=remap_assets).set_index('index')
-                            df = pd.concat([df,tmp_df], sort=True)
-                        i+=1
-    df = add_columns_by_index(df.copy())
-    return df
+            i[wallet_subtype]=0     
+            if (wallet_subtype.lower() in balance_functions.keys()) and (wallet_type =='APIs'):
+                for wallet in wallet_dict[wallet_type][wallet_subtype]:                    
+                    exchange_class = balance_functions[wallet_subtype.lower()]
+                    
+                    exchange = exchange_class(wallet['api_key'].encode(), wallet['api_sec'].encode(), key)
+                    balances = exchange.getBalances_Universal()
+                    df = pd.DataFrame()
+                    for bal in balances:
+                        if len(wallet_dict[wallet_type][wallet_subtype])>1:
+                            index_str = f"{wallet_subtype}_{i[wallet_subtype]}"
+                        else:
+                            index_str = wallet_subtype
+                        tmp_df = pd.DataFrame({index_str : balances[bal]},index=[rename_asset(bal,exchange.getValidAssets_Universal())])
+                        df = pd.concat([df,tmp_df], axis=0, sort=True)
+                    api_df = pd.concat([api_df,df], axis=1, sort=True)
+                    i[wallet_subtype]+=1
 
-def add_columns_by_index(df):
+
+            elif (wallet_subtype.upper() in balance_functions.keys()) and (wallet_type !='APIs'):
+                address_ls = [decrypt(i['address'].encode(),key).decode() for i in wallet_dict[wallet_type][wallet_subtype]]
+
+                balance_function = balance_functions[wallet_subtype]
+                balances = balance_function(address_ls)
+                if balances is not None:
+                    for address in balances:
+                        if len(wallet_dict[wallet_type][wallet_subtype])>1:
+                            index_str = f"{wallet_subtype}_{i[wallet_subtype]}"
+                        else:
+                            index_str = wallet_subtype
+
+                        balance = balances[address]['final_balance']
+                        if wallet_subtype=='BTC':
+                            balance = balance/100000000
+                        tmp_df = pd.DataFrame({index_str : balance },index=[wallet_subtype])
+                        address_df = pd.concat([address_df,tmp_df], axis=1, sort=True)
+                        i[wallet_subtype]+=1
+
+            full_df = pd.concat([api_df,address_df], axis=1, sort=True)
+    full_df = add_columns_by_index(full_df.copy().fillna(0))
+    return full_df
+
+def add_columns_by_index(df,new_col_name='Total'):
     """
     Combine columns in a dataframe into one Total column
 
     Args:
         df (pandas.DataFrame): dataframe containing date to be totalled
+        new_col_name (str): name which will be applied to the new column
 
     Returns:
         pandas.DataFrame: DataFrame with appended Total column
     """
     columns_to_add = df.columns
-    df['Total']=0
+    df[new_col_name]=0
     for col in columns_to_add:
-        df['Total']+=df[col].fillna(0).astype('float')
-    return df.fillna('')
+        df[new_col_name]+=df[col].fillna(0).astype('float')
+        
+    # Remove anything with total = 0
+    for index in df[df[new_col_name]==0].index.values:
+        df = df.drop(index)
+        
+    return df

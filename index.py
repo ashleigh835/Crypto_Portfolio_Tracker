@@ -1,5 +1,5 @@
 from app import app
-from apps import dashboard as db , settings as ls
+from apps import dashboard as db, settings as ls
 
 from lib.functions import generate_new_key, settings_default
 
@@ -59,7 +59,7 @@ navbar = dbc.Navbar(
     [   dcc.Store(id='encryption-key', storage_type='session'),
         dcc.Store(data=False, id='encryption-key-set', storage_type='session',),
         dcc.Store(data=settings_default(), id='memory', storage_type='local'), #, clear_data =True),
-        dcc.Store(data=False, id='settings_encryption_trigger', storage_type='memory'),
+        dcc.Store(data=False, id='settings_encryption_trigger', storage_type='session'),
         html.Div(
             dbc.Row(
                 [   dbc.Col(html.Img(src=app.get_asset_url('cryptocurrency.png'), height='50px')),
