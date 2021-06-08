@@ -16,7 +16,7 @@ class Exchange():
         """
         return requests.get(f"{self.api_url}{uri_path}")
                           
-    def getHistoricalPricesDataFrameList_Universal(self,symbols,native='USD',stable_coin_alt=True,stable_coin_alts=stable_coin_alts):
+    def getHistoricalPricesDataFrameList_Universal(self,symbols,native='USD',stable_coin_alt=True,stable_coin_alts=stable_coin_alts, hp_df = pd.DataFrame()):
         """
         Retrieve historical price dataframe from the list of provided symbols.
 
@@ -25,11 +25,12 @@ class Exchange():
             native (str, optional): Asset ticker for the native currency used in the right side of the symbol. Defaults to 'USD'.
             stable_coin_alt (bool, optional): If the pairing failed, use the list of stable coin alternatives to find another pairing (e.g. if there was no reponse for USD, look for USDT). Defaults to True.
             stable_coin_alts (dict, optional): an alternative asset mapping to the given native, e.g. {'USD': ['USDT','DAI']}. Defaults to stable_coin_alts from config.py.
+            hp_df (pandas.DataFrame, optional): if a dataframe is provided, the prices will be appended to the df and prices already present will not be recalculated
 
         Returns:
             Pandas.DataFrame: dataframe of price daily data in one column per symbol - indexed by date
         """
-        hp_df = pd.DataFrame()
+        
         for symbol in symbols:   
             
             # Treat staked symbols as their non-staked counterparts

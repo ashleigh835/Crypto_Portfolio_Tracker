@@ -1,6 +1,6 @@
 from app import app
 from lib.dash_functions import generate_wallet_cards
-from lib.functions import add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, encrypt
+from lib.functions import add_entry_to_json, remove_entry_from_json, get_latest_index_from_json, encrypt, settings_default
 
 import json
 from datetime import datetime
@@ -67,6 +67,7 @@ def load_wallet_data(data, stored_key, key_set ):
     Returns:
         list: list of html children containing cards of wallets
     """
+    print(f"loading wallet data")
     if data is not None:
         if key_set:
             return generate_wallet_cards(data['Wallets'],stored_key.encode())
@@ -169,8 +170,11 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
         dict: freshly reloaded json data dict from file after adding/removing info
     """
     ctx = dash.callback_context
+    print(f"add_or_remove_wallet triggered")
     if (len(ctx.triggered)>0) & (([n1,n2]+n3+n4) != ([None]*(2+len(n3)+len(n4)))):
         trg = ctx.triggered[0]['prop_id'].split('.')[0]
+        if app_settings_dict is None:
+            app_settings_dict = settings_default()
         if trg == 'add-api':
             bad_api_key = False
             bad_api_sec = False 
@@ -180,7 +184,7 @@ def add_or_remove_wallet(n1, n2, n3, n4, exchange, api_key, api_sec, api_pass, b
                 bad_api_sec = True
 
             if bad_api_key == bad_api_sec == False:
-                max_index = get_latest_index_from_json('APIs')
+                max_index = get_latest_index_from_json('APIs', app_settings_dict)
                 if api_pass not in ['',None]:
                     api_pass = encrypt(api_pass.encode('utf-8'),stored_key).decode()
                 exch = {

@@ -51,7 +51,7 @@ class Coinbase(Exchange):
             })
             return request 
             
-    def request(self, uri_path):
+    def pro_request(self, uri_path):
         """
         API request to the api_url already within the class (self.api_url)
 
@@ -143,7 +143,7 @@ class Coinbase(Exchange):
                     return self.validAssets_universal
         else: return self.validAssets_universal
                       
-    def getValidSymbols_Universal(self, native='USD', refresh=False):
+    def getValidSymbols_Universal(self, refresh=False):
         """
         Get the valid symbols within the exchange via API call
         UNIVERSAL - the output will be the same for functions with other exchange classes with the same definition name
@@ -155,16 +155,50 @@ class Coinbase(Exchange):
             list: response from the API, loaded into the self.validSymbols_universal variable
         """
         if (refresh == True) or ('validSymbols_universal' not in vars(self)):
-            validAssets_Universal = self.getValidAssets_Universal(refresh)
-            if validAssets_Universal is not None:
-                self.validSymbols_universal =  [
-                    f"{asset}/{native}" 
-                        for asset in validAssets_Universal
-                            if asset not in fiat_currencies
-                ]
-                return self.validSymbols_universal
+            resp = self.pro_request(f"/products")
+            if resp.status_code == 200: 
+                if len(resp.json())>0:
+                    self.validSymbols_universal = [product['display_name'] for product in resp.json()]
+                    return self.validSymbols_universal
         else: return self.validSymbols_universal
-                     
+
+    def getSpotPrice(self,symbol):
+        """
+        Get the current price for the symbol provided
+
+        Args:
+            symbol (str): trading symbol as XXX/XXX
+
+        Returns:
+            dict: response from the API
+        """
+        resp = self.request(f"/prices/{symbol.replace('/','-')}/spot")
+        if resp.status_code == 200: 
+            if 'data' in resp.json().keys():
+                if (resp.json()['data']['base'] == symbol.split('/')[0]) & (resp.json()['data']['currency'] == symbol.split('/')[1]):
+                    return {symbol: resp.json()['data']['amount']}
+        else: 
+            print(f"bad response for {symbol}: {resp.status_code} from API")
+            if 'errors' in resp.json().keys():
+                for err in resp.json()['errors']:
+                    print(err)
+
+    def getSpotPrices(self, symbols):
+        """
+        Get the current prices for the symbols provided
+
+        Args:
+            symbol ([str]): trading symbol as XXX/XXX
+
+        Returns:
+            dict: response from the API
+        """
+        sp = {}
+        for symbol in symbols:
+            spot = self.getSpotPrice(symbol)
+            if spot is not None: sp.update(spot)
+        return sp
+
     def getHistoricalPrices(self, symbol):
         """
         Get the recent Historical prices for the provided symbol within the exchange via API call
@@ -175,14 +209,13 @@ class Coinbase(Exchange):
         Returns:
             dict: response from the API
         """
-        resp = self.request(f"/products/{symbol.replace('/','-')}/candles?granularity=86400")
+        resp = self.pro_request(f"/products/{symbol.replace('/','-')}/candles?granularity=86400")
         if resp.status_code == 200: 
             if len(resp.json())>0:
                 return resp.json()
         else: 
             print(f"bad response: {resp.status_code} from API")
-            if 'errors' in resp.json().keys():
-                for err in resp.json()['errors']: print(f"error: {err}") 
+            print(resp.json())
     
     def getHistoricalPricesDataFrame(self,symbol):
         """
@@ -257,8 +290,7 @@ class Coinbase(Exchange):
                 pairs = transactions[~transactions.pair.isna()].pair.drop_duplicates().tolist()
                 symbols = list(set(assets+pairs))
                 return self.getHistoricalPricesDataFrameList_Universal(symbols, native, stable_coin_alt) 
-               
-#         type fiat_deposit not supported!             
+                           
     def parse_api_results(self,resp):
         """
         Parse Ledger or Trade results into a formatted dataframe
@@ -269,6 +301,7 @@ class Coinbase(Exchange):
         Returns:
             pandas.DataFrame: formatted dataframe of the handled resp
         """
+        # type fiat_deposit not supported! 
         df = pd.DataFrame()
         if resp is None:
             print(f"No result to Parse!")

@@ -318,11 +318,11 @@ def settings_default():
         dict: contains app data including wallet information
     """
     return {
-    'Wallets' : {
-        'APIs' : {},
-        'Addresses' : {}
+        'Wallets' : {
+            'APIs' : {},
+            'Addresses' : {}
+        }
     }
-}
 
 def clean_json(app_settings_dict):
     """
@@ -443,8 +443,8 @@ def balances_from_dict(wallet_dict, key=''):
     from lib.kraken import Kraken
     from lib.coinbase import Coinbase  
     from lib.bittrex import Bittrex
-    from lib.API_functions import blockchain_address_api, infura_eth_address
-    balance_functions = {'kraken':Kraken,'coinbase':Coinbase,'bittrex':Bittrex,'BTC':blockchain_address_api,'ETH':infura_eth_address}
+    from lib.API_functions import blockchain_address_api, infura_eth_address, coinexplorer_addresses_api
+    balance_functions = {'kraken':Kraken,'coinbase':Coinbase,'bittrex':Bittrex,'BTC':blockchain_address_api,'ETH':infura_eth_address, 'VTC':coinexplorer_addresses_api}
     api_df = pd.DataFrame()
     address_df = pd.DataFrame()
     full_df = pd.DataFrame()
@@ -459,6 +459,7 @@ def balances_from_dict(wallet_dict, key=''):
                     exchange = exchange_class(wallet['api_key'].encode(), wallet['api_sec'].encode(), key)
                     balances = exchange.getBalances_Universal()
                     df = pd.DataFrame()
+
                     for bal in balances:
                         if len(wallet_dict[wallet_type][wallet_subtype])>1:
                             index_str = f"{wallet_subtype}_{i[wallet_subtype]}"
@@ -472,9 +473,12 @@ def balances_from_dict(wallet_dict, key=''):
 
             elif (wallet_subtype.upper() in balance_functions.keys()) and (wallet_type !='APIs'):
                 address_ls = [decrypt(i['address'].encode(),key).decode() for i in wallet_dict[wallet_type][wallet_subtype]]
-
+                    
                 balance_function = balance_functions[wallet_subtype]
-                balances = balance_function(address_ls)
+                if wallet_subtype == 'VTC':
+                    balances = balance_function(wallet_subtype,address_ls)
+                else:
+                    balances = balance_function(address_ls)
                 if balances is not None:
                     for address in balances:
                         if len(wallet_dict[wallet_type][wallet_subtype])>1:
@@ -492,6 +496,63 @@ def balances_from_dict(wallet_dict, key=''):
             full_df = pd.concat([api_df,address_df], axis=1, sort=True)
     full_df = add_columns_by_index(full_df.copy().fillna(0))
     return full_df
+
+def pull_spot_prices_from_all_sources(symbols, wallet_dict, native='USD', spot_df=pd.DataFrame()):
+    """
+    use all exchanges to pull prices for the symbols provided
+
+    Args:
+        symbols ([str]): list of symbols to pull prices for e.g. ['BTC/USD', 'ETH/USD']
+        wallet_dict (dict): dictionary of {wallet_type: {wallet_subtype:[list of wallets]}}
+        native (str, optional): native currency to use as the right pairing of the spot price. Defaults to 'USD'.
+        spot_df (pandas.DataFrame, optional): dataframe which spot prices will be appended to. Defaults to pd.DataFrame().
+
+    Returns:
+        pandas.DataFrame: updated dataframe with the prices for the symbols appended 
+    """
+    from lib.coingecko import CoinGecko    
+    from lib.bittrex import Bittrex
+    from lib.kraken import Kraken
+    from lib.coinbase import Coinbase  
+
+    from datetime import datetime
+    exchange_classes = {'kraken':Kraken,'coinbase':Coinbase,'bittrex':Bittrex,'coingecko':CoinGecko}
+
+    for wallet_subtype in ['coingecko'] + list(wallet_dict['Wallets']['APIs'].keys()):
+        if wallet_subtype.lower() in ['coingecko','coinbase']:
+            if wallet_subtype.lower() in ['coingecko']:        
+                price_symbols = [bal for bal in symbols if f'{bal}/{native}' not in spot_df.columns]
+                exchange_class = exchange_classes[wallet_subtype.lower()]()
+                spot_price_function = exchange_class.getSymbolPrices
+                valid_symbols = list(set(set(exchange_class.getValidAssets_Universal()) & set(price_symbols)))
+            elif wallet_subtype.lower() in ['coinbase']:                    
+                price_symbols = [f'{bal}/{native}' for bal in symbols if f'{bal}/{native}' not in spot_df.columns]
+                exchange_class = exchange_classes[wallet_subtype.lower()]('', '')
+                spot_price_function = exchange_class.getSpotPrices
+                valid_symbols = list(set(set(exchange_class.getValidSymbols_Universal()) & set(price_symbols)))
+
+            if len(price_symbols)>0:
+                print(f"pulling prices for {price_symbols} from {wallet_subtype.lower()}")
+                staked_assets = [asset for asset in price_symbols if asset.split('/')[0].endswith('.S')]
+                for staked_asset in staked_assets:
+                    price_symbols.remove(staked_asset)
+                price_symbols += [asset.replace('.S','') for asset in staked_assets]
+
+                valid_symbols = list(set(valid_symbols) & set(price_symbols))
+
+                print(f"valid for {wallet_subtype}: {valid_symbols}")
+                prices = spot_price_function(valid_symbols)
+                prices_df = pd.DataFrame(prices, index=[datetime.now().date()])                
+                for staked_asset in staked_assets:
+                    non_staked_asset = staked_asset.replace('.S','')
+                    if (f"{staked_asset}/{native}" not in prices_df.columns) and (f"{non_staked_asset}/{native}" in prices_df.columns) and (non_staked_asset != staked_asset):
+                        prices_df[f"{staked_asset}/{native}"] = prices_df[[f"{non_staked_asset}/{native}"]].copy()  
+
+
+                cols_to_append = list(prices_df.columns[~prices_df.columns.isin(list(spot_df.columns))])
+                spot_df = pd.concat([spot_df,prices_df[cols_to_append]],axis=1, sort=True, join='outer')               
+
+    return spot_df
 
 def add_columns_by_index(df,new_col_name='Total'):
     """

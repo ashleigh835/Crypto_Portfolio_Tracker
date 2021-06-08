@@ -188,6 +188,7 @@ def generate_wallet_cards(wallet_dict, key=''):
         options=[
             {'label': 'Bitcoin', 'value': 'BTC'},
             {'label': 'Ethereum', 'value': 'ETH'},
+            {'label': 'Vertcoin', 'value': 'VTC'}
         ],
         multi=False,
         value='BTC'
