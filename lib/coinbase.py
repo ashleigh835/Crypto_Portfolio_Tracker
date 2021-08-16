@@ -40,7 +40,7 @@ class Coinbase(Exchange):
                 requests.request: updated with authorized headers 
             """      
             timestamp = str(int(time.time()))
-            message = timestamp + request.method + request.path_url + (request.body or b'')
+            message = timestamp + request.method + request.path_url + (request.body or '')
             signature = hmac.new(decrypt(self.api_sec,self.key), message.encode(), hashlib.sha256).hexdigest()
 
             request.headers.update({
@@ -63,7 +63,7 @@ class Coinbase(Exchange):
         """
         return requests.get(f"{self.api_url_pro}{uri_path}")
 
-    def auth_request(self, uri_path, data):
+    def auth_request(self, uri_path, data={}):
         """
         Submit an authenticated request to the API server
 
@@ -88,7 +88,8 @@ class Coinbase(Exchange):
             dict: response from the API, loaded into the self.accounts variable
         """
         if (refresh == True) or ('accounts' not in vars(self)):
-            resp = self.auth_request('/accounts',{'limit' : 100,'order' : 'desc'})
+            resp = self.auth_request('/accounts')
+            # resp = self.auth_request('/accounts',{'limit' : 100,'order' : 'desc'})
             if resp.status_code == 200: 
                 if 'data' in resp.json().keys():
                     self.accounts = resp.json()
@@ -310,8 +311,8 @@ class Coinbase(Exchange):
             return None
         for data in resp['data']:
             tmp = {}
-            for ele in ['type','created_at','resource']:
-                tmp[ele] = data[ele]
+            for key in ['type','created_at','resource']:
+                tmp[key] = data[key]
 
             if data['type']=='buy':
                 tmp['vol']=data['amount']['amount']
@@ -340,6 +341,19 @@ class Coinbase(Exchange):
                     tmp['asset']=data['amount']['currency']
                 else:
                     print(f"Transactions: {data['type']}, network status: {data['network']['status']} not supported!")  
+
+                if 'from' in data.keys():
+                    print(f"found a received transaction: {data['from']}")
+                    print()
+                    tmp['type'] = 'receive'
+                    tmp['from_id'] = data['from']['id']
+                    if 'address' in data['from'].keys():
+                        tmp['from'] = data['from']['address']
+                elif 'to' in data.keys():
+                    if 'address' in data['to'].keys():
+                        tmp['to'] = data['to']['address']
+                else:
+                    print('no send or from in a send a transaction!')
 
             elif data['type']== 'staking_reward':
                 tmp['vol']=data['amount']['amount']
